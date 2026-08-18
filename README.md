@@ -1,6 +1,6 @@
 # TYRE
 
-> **Voice-first. UPI escrow. Built for the Bihar–Jharkhand–UP corridor.**
+> **Voice-first. UPI escrow. Built for India.**
 
 TYRE is the AI-native freight operating system for Indian trucking. Drivers speak Bhojpuri or Hindi to find loads. Brokers post loads with GSTIN-verified trust. UPI escrow releases a ₹10,000 advance on load acceptance and the balance on GPS-verified delivery + consignee WhatsApp confirmation. Return-load matching cuts empty miles.
 

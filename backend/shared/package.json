@@ -13,7 +13,6 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsc -b",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
@@ -22,3 +21,4 @@
     "zod": "^4.0.2"
   }
 }
+

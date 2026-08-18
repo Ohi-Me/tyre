@@ -19,7 +19,6 @@
     "./webhooks": "./webhooks/index.ts"
   },
   "scripts": {
-    "build": "tsc -b",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
@@ -30,3 +29,4 @@
     "zod": "^4.0.2"
   }
 }
+

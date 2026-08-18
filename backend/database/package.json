@@ -13,7 +13,6 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsc -b",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push --schema=./prisma/schema.prisma",
@@ -29,3 +28,4 @@
     "prisma": "^6.11.1"
   }
 }
+

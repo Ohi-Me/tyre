@@ -124,6 +124,7 @@ export function Atmosphere({ nx, ny, reduce }: { nx?: PV; ny?: PV; reduce: boole
       >
         {nodes.map((n, i) => {
           const m = nodes[(i + 1) % nodes.length];
+          if (!m) return null;
           return (
             <line key={`l${i}`} x1={n.x} y1={n.y} x2={m.x} y2={m.y} stroke="rgba(108,140,255,0.10)" strokeWidth="0.15" />
           );

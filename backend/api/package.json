@@ -1,0 +1,32 @@
+{
+  "name": "@tyre/api",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./auth": "./auth/index.ts",
+    "./loads": "./loads/index.ts",
+    "./trucks": "./trucks/index.ts",
+    "./trips": "./trips/index.ts",
+    "./pricing": "./pricing/index.ts",
+    "./escrow": "./escrow/index.ts",
+    "./trust": "./trust/index.ts",
+    "./fastag": "./fastag/index.ts",
+    "./voice": "./voice/index.ts",
+    "./webhooks": "./webhooks/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tyre/shared": "workspace:*",
+    "@tyre/db": "workspace:*",
+    "@tyre/auth": "workspace:*",
+    "zod": "^4.0.2"
+  }
+}

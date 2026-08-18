@@ -1,0 +1,51 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [".env", "tsconfig.base.json"],
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "GROQ_API_KEY",
+    "AI_GATEWAY_URL",
+    "TYRE_WHISPER_API_KEY",
+    "TYRE_ELEVENLABS_API_KEY",
+    "TYRE_NLLB_API_URL",
+    "TYRE_RAZORPAY_KEY_ID",
+    "TYRE_RAZORPAY_KEY_SECRET",
+    "TYRE_RAZORPAY_WEBHOOK_SECRET",
+    "TYRE_WHATSAPP_TOKEN",
+    "TYRE_WHATSAPP_PHONE_NUMBER_ID",
+    "TYRE_WHATSAPP_VERIFY_TOKEN",
+    "TYRE_WHATSAPP_APP_SECRET",
+    "TYRE_TELEGRAM_BOT_TOKEN",
+    "TYRE_TELEGRAM_WEBHOOK_SECRET",
+    "TYRE_GOOGLE_MAPS_API_KEY",
+    "TYRE_GST_VERIFICATION_API_KEY",
+    "TYRE_INTERNAL_SERVICE_TOKEN",
+    "TYRE_PII_ENCRYPTION_KEY",
+    "TYRE_SMS_PROVIDER",
+    "TYRE_SMS_API_KEY",
+    "NEXTAUTH_URL",
+    "NEXTAUTH_SECRET"
+  ],
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "test": {
+      "outputs": ["coverage/**"],
+      "dependsOn": ["^build"]
+    },
+    "typecheck": {
+      "outputs": [],
+      "dependsOn": ["^build"]
+    }
+  }
+}

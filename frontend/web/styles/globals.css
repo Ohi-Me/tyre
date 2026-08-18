@@ -1,0 +1,748 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-serif), "Playfair Display", Georgia, serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+
+  /* Signature easings — the TYRE motion accent */
+  --ease-expo: cubic-bezier(0.19, 1, 0.22, 1);     /* expo out — arrivals */
+  --ease-cubic: cubic-bezier(0.65, 0.05, 0.36, 1); /* cubic — UI reveals */
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);         /* snap — cursor/press */
+  --ease-brake: cubic-bezier(0.05, 0.7, 0.1, 1);   /* heavy vehicle braking to a stop */
+  --ease-clutch: cubic-bezier(0.7, 0, 0.2, 1.4);   /* slight overshoot — tactile toggles */
+  --font-hindi: var(--font-devanagari), "Noto Sans Devanagari", sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TYRE Design System v2 — "ASPHALT & SIGNAL"
+   The story of an Indian trucking day: warm bone paper (daylight yard)
+   alternating with deep asphalt night. One electric accent — signal
+   lime — behaves like a headlight / HUD phosphor. Ember orange is
+   reserved strictly for money and alerts. All data speaks in mono
+   tabular numerals. Light comes from a direction; shadows are warm;
+   nothing glows without a source.
+   ════════════════════════════════════════════════════════════════════ */
+:root {
+  --radius: 1.25rem;
+
+  /* Daylight surfaces — warm bone, not clinical white */
+  --background: #F4F2EB;
+  --foreground: #12100B;
+
+  --card: #FDFCF8;
+  --card-foreground: #12100B;
+
+  --popover: #FDFCF8;
+  --popover-foreground: #12100B;
+
+  /* Primary = asphalt ink */
+  --primary: #12100B;
+  --primary-foreground: #F7F5EE;
+
+  --secondary: #EAE7DD;
+  --secondary-foreground: #1C1913;
+
+  --muted: #ECE9E0;
+  --muted-foreground: #6E6A5E;
+
+  /* Accent = route blue on paper */
+  --accent: #E8EDFF;
+  --accent-foreground: #2C46C8;
+
+  --destructive: #D93526;
+  --border: rgba(18, 16, 11, 0.12);
+  --input: rgba(18, 16, 11, 0.16);
+  --ring: #4062E8;
+
+  --chart-1: #4062E8; /* route blue (paper-safe) */
+  --chart-2: #12100B; /* asphalt */
+  --chart-3: #FF5A1E; /* ember — money */
+  --chart-4: #2F9E8F; /* teal */
+  --chart-5: #8B6CEF; /* violet */
+
+  --sidebar: #FDFCF8;
+  --sidebar-foreground: #1C1913;
+  --sidebar-primary: #12100B;
+  --sidebar-primary-foreground: #F7F5EE;
+  --sidebar-accent: #ECE9E0;
+  --sidebar-accent-foreground: #12100B;
+  --sidebar-border: rgba(18, 16, 11, 0.08);
+  --sidebar-ring: #4062E8;
+
+  /* ── TYRE brand tokens v3 — Route Blue ── */
+  --tyre-signal: #3D6BFF;        /* route blue — the moving lane of light */
+  --tyre-signal-hot: #6C8CFF;    /* peak brightness (hover, live dots) */
+  --tyre-green: #3D6BFF;         /* legacy name → signal */
+  --tyre-green-deep: #2C46C8;    /* deep route — blue on paper (AA text) */
+  --tyre-ember: #FF5A1E;         /* money / alerts ONLY */
+  --tyre-orange: #FF5A1E;        /* legacy name → ember */
+  --tyre-orange-deep: #BE3B0B;
+  --tyre-mint: #E8EDFF;          /* ice — blue tint on paper */
+  --tyre-ink: #12100B;
+  --tyre-ink-soft: #37332A;
+  --tyre-paper: #FDFCF8;
+  --tyre-paper-deep: #EAE7DD;
+  --tyre-cream: #F4F2EB;
+  --tyre-sand: #EAE7DD;
+  /* Night surfaces — warm asphalt, never pure black */
+  --tyre-panel: #0C0B08;
+  --tyre-panel-soft: #171510;
+  --tyre-panel-edge: rgba(255, 250, 235, 0.09);
+
+  /* Route sweep — used for progress / route lines */
+  --tyre-gradient: linear-gradient(100deg, #2C46C8 0%, #3D6BFF 55%, #45D8FF 100%);
+  --tyre-gradient-soft: linear-gradient(135deg, #E8EDFF 0%, #F1EFE2 60%, #FBE9DC 100%);
+  /* Headlight wash */
+  --tyre-aura: linear-gradient(90deg, rgba(61,107,255,0.5) 0%, rgba(244,242,235,0) 45%, rgba(255,90,30,0.28) 100%);
+
+  /* Legacy aliases kept alive for un-migrated components */
+  --tyre-pink: var(--tyre-signal);
+  --tyre-pink-deep: var(--tyre-green-deep);
+  --tyre-blush: var(--tyre-mint);
+  --tyre-amber: var(--tyre-ember);
+
+  /* ── Marketing accent v1 — "Violet" ──
+     Scoped to the public landing page only. The authenticated app (sidebar,
+     dashboard, buttons) keeps reading --tyre-signal/--tyre-ember untouched;
+     these are net-new names so nothing else in the product re-colors. */
+  --tyre-violet: #7C3AED;
+  --tyre-violet-hot: #9F67FF;
+  --tyre-violet-deep: #5B21B6;
+  --tyre-violet-soft: #F1ECFC;
+  --tyre-violet-gradient: linear-gradient(135deg, #8B5CF6 0%, #C026D3 100%);
+  --tyre-violet-gradient-soft: linear-gradient(135deg, rgba(139,92,246,0.14) 0%, rgba(192,38,211,0.08) 100%);
+}
+
+.dark {
+  --background: #0C0B08;
+  --foreground: #F3F1E8;
+  --card: #14120D;
+  --card-foreground: #F3F1E8;
+  --popover: #14120D;
+  --popover-foreground: #F3F1E8;
+  --primary: #F3F1E8;
+  --primary-foreground: #0C0B08;
+  --secondary: #1D1A13;
+  --secondary-foreground: #F3F1E8;
+  --muted: #1A1812;
+  --muted-foreground: #9C978A;
+  --accent: rgba(124, 154, 255, 0.16);
+  --accent-foreground: #9DB4FF;
+  --destructive: #FF6A55;
+  --border: rgba(243, 241, 232, 0.11);
+  --input: rgba(243, 241, 232, 0.14);
+  --ring: #7C9AFF;
+  --chart-1: #7C9AFF;
+  --chart-2: #F3F1E8;
+  --chart-3: #FF7A45;
+  --chart-4: #3FB8A6;
+  --chart-5: #A78BFA;
+  --sidebar: #0C0B08;
+  --sidebar-foreground: #CDC9BD;
+  --sidebar-primary: #F3F1E8;
+  --sidebar-primary-foreground: #0C0B08;
+  --sidebar-accent: #14120D;
+  --sidebar-accent-foreground: #F3F1E8;
+  --sidebar-border: rgba(243, 241, 232, 0.08);
+  --sidebar-ring: #7C9AFF;
+
+  --tyre-signal: #7C9AFF;
+  --tyre-signal-hot: #9DB4FF;
+  --tyre-green: #7C9AFF;
+  --tyre-green-deep: #7C9AFF;
+  --tyre-ember: #FF7A45;
+  --tyre-orange: #FF7A45;
+  --tyre-mint: rgba(124, 154, 255, 0.14);
+  --tyre-ink: #F3F1E8;
+  --tyre-ink-soft: #C4C0B3;
+  --tyre-paper: #14120D;
+  --tyre-paper-deep: #1D1A13;
+  --tyre-cream: #14120D;
+  --tyre-panel: #100E0A;
+  --tyre-panel-soft: #1D1A13;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+  }
+  html, body {
+    @apply bg-background text-foreground;
+    background: var(--background);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  ::selection {
+    background: rgba(61, 107, 255, 0.28);
+    color: #12100B;
+  }
+}
+
+@layer utilities {
+  /* ══════════ TYPOGRAPHY ══════════ */
+
+  /* Display — tight, heavy, editorial. Hero & section titles. */
+  .tyre-display {
+    font-family: var(--font-display), system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.94;
+  }
+
+  /* Oversized cinematic display for hero / CTA moments */
+  .tyre-display-xl {
+    font-family: var(--font-display), system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 0.9;
+  }
+
+  .tyre-h2 {
+    font-family: var(--font-display), system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.0;
+    font-size: clamp(2rem, 1.2rem + 3.6vw, 4rem);
+  }
+
+  /* Eyebrow — mono, like a shipping-manifest field label */
+  .tyre-eyebrow {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--tyre-green-deep);
+  }
+
+  /* ALL data is mono + tabular. Odometer voice. */
+  .tyre-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* Editorial italic-serif emphasis mid-headline */
+  .tyre-em {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Word-mask reveal — headlines rise out of a clipped line */
+  .tyre-mask { overflow: hidden; display: block; }
+  @keyframes tyre-mask-up {
+    from { transform: translateY(110%); }
+    to   { transform: translateY(0); }
+  }
+  .tyre-mask > * {
+    display: inline-block;
+    animation: tyre-mask-up 0.9s var(--ease-expo) both;
+  }
+
+  /* ══════════ SURFACES & LIGHTING ══════════ */
+
+  /* Hairline top-light: dark surfaces catch light on their upper edge */
+  .tyre-toplight {
+    box-shadow: inset 0 1px 0 rgba(255, 250, 235, 0.10);
+  }
+
+  /* Directional headlight wash — light has a source, top-left */
+  .tyre-headlight {
+    background-image:
+      radial-gradient(120% 90% at 18% 0%, rgba(61,107,255,0.14) 0%, transparent 55%),
+      radial-gradient(100% 80% at 85% 100%, rgba(255,90,30,0.07) 0%, transparent 60%);
+  }
+
+  /* Card primitive — paper card, hairline, warm depth shadow */
+  .tyre-card {
+    @apply rounded-[1.5rem] border border-[var(--border)] bg-card transition-all duration-300;
+    box-shadow: 0 1px 2px rgba(28, 22, 12, 0.04);
+  }
+  .tyre-card-hover {
+    @apply rounded-[1.5rem] border border-[var(--border)] bg-card transition-all duration-500;
+    box-shadow: 0 1px 2px rgba(28, 22, 12, 0.04);
+  }
+  .tyre-card-hover:hover {
+    transform: translateY(-4px);
+    border-color: rgba(18, 16, 11, 0.35);
+    box-shadow:
+      0 24px 60px -28px rgba(28, 22, 12, 0.30),
+      0 2px 6px rgba(28, 22, 12, 0.06);
+  }
+
+  /* Glass — frosted paper for overlays, palettes, floating chrome */
+  .tyre-glass {
+    background: rgba(253, 252, 248, 0.78);
+    backdrop-filter: blur(18px) saturate(1.1);
+    -webkit-backdrop-filter: blur(18px) saturate(1.1);
+    border: 1px solid rgba(18, 16, 11, 0.1);
+    box-shadow: 0 12px 40px -16px rgba(28, 22, 12, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  .tyre-glass-dark {
+    background: rgba(16, 14, 10, 0.72);
+    backdrop-filter: blur(18px) saturate(1.05);
+    -webkit-backdrop-filter: blur(18px) saturate(1.05);
+    border: 1px solid rgba(243, 241, 232, 0.1);
+    box-shadow: 0 16px 50px -20px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 250, 235, 0.08);
+  }
+
+  /* Elevation scale — one language for depth */
+  .tyre-elev-1 { box-shadow: 0 1px 2px rgba(28,22,12,0.05), 0 1px 1px rgba(28,22,12,0.03); }
+  .tyre-elev-2 { box-shadow: 0 8px 24px -12px rgba(28,22,12,0.18), 0 2px 6px rgba(28,22,12,0.05); }
+  .tyre-elev-3 { box-shadow: 0 24px 60px -24px rgba(28,22,12,0.3), 0 4px 12px rgba(28,22,12,0.06); }
+
+  /* Night card — asphalt with a lit top edge */
+  .tyre-card-dark {
+    background: var(--tyre-panel-soft);
+    border: 1px solid var(--tyre-panel-edge);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 250, 235, 0.08),
+      0 30px 80px -40px rgba(0, 0, 0, 0.8);
+  }
+
+  .tyre-panel {
+    background: var(--tyre-panel);
+    border: 1px solid var(--tyre-panel-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 250, 235, 0.07);
+  }
+
+  /* ══════════ BUTTONS ══════════ */
+
+  .tyre-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-[var(--tyre-ink)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] active:scale-[0.97];
+    transition: transform 0.15s var(--ease-snap), box-shadow 0.3s var(--ease-cubic), background 0.2s;
+    box-shadow: 0 1px 2px rgba(18,16,11,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .tyre-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 26px -10px rgba(18,16,11,0.5), inset 0 1px 0 rgba(255,255,255,0.10);
+  }
+
+  .tyre-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-[var(--tyre-ink)]/80 bg-transparent px-6 py-3 text-sm font-semibold text-[var(--tyre-ink)] active:scale-[0.97];
+    transition: background 0.25s var(--ease-cubic), color 0.25s var(--ease-cubic), transform 0.15s var(--ease-snap);
+  }
+  .tyre-btn-secondary:hover {
+    background: var(--tyre-ink);
+    color: var(--background);
+  }
+
+  /* Signal button — the lime CTA. Feels lit, presses like a switch. */
+  .tyre-btn-signal {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white active:scale-[0.96];
+    background: var(--tyre-gradient);
+    transition: transform 0.15s var(--ease-snap), box-shadow 0.35s var(--ease-cubic), filter 0.2s;
+    box-shadow:
+      0 10px 30px -12px rgba(61, 107, 255, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      inset 0 -2px 0 rgba(44, 70, 200, 0.35);
+  }
+  .tyre-btn-signal:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.04);
+    box-shadow:
+      0 18px 44px -14px rgba(61, 107, 255, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -2px 0 rgba(44, 70, 200, 0.35);
+  }
+  /* legacy alias */
+  .tyre-btn-gradient {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white active:scale-[0.96];
+    background: var(--tyre-gradient);
+    transition: transform 0.15s var(--ease-snap), box-shadow 0.35s var(--ease-cubic);
+    box-shadow: 0 10px 30px -12px rgba(61, 107, 255, 0.55), inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+  .tyre-btn-gradient:hover { transform: translateY(-2px); box-shadow: 0 18px 44px -14px rgba(61,107,255,0.65), inset 0 1px 0 rgba(255,255,255,0.5); }
+
+  /* Pill badge */
+  .tyre-pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)]/70 px-3.5 py-1.5 text-[12px] font-medium backdrop-blur-sm;
+  }
+
+  /* Violet button — marketing-page CTA, distinct from the app's signal-blue. */
+  .tyre-btn-violet {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white active:scale-[0.96];
+    background: var(--tyre-violet-gradient);
+    transition: transform 0.15s var(--ease-snap), box-shadow 0.35s var(--ease-cubic), filter 0.2s;
+    box-shadow:
+      0 10px 30px -12px rgba(124, 58, 237, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -2px 0 rgba(91, 33, 182, 0.35);
+  }
+  .tyre-btn-violet:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow:
+      0 18px 44px -14px rgba(124, 58, 237, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -2px 0 rgba(91, 33, 182, 0.35);
+  }
+
+  /* Violet-tinted card — soft lavender surface for stat/testimonial blocks */
+  .tyre-card-violet {
+    background: var(--tyre-violet-gradient);
+    color: white;
+    box-shadow: 0 30px 70px -36px rgba(124, 58, 237, 0.55), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+
+  /* Diagonal ticker band — rotated full-bleed strip (reference's skewed marquee) */
+  .tyre-ticker-band {
+    transform: rotate(-2deg) scale(1.04);
+  }
+
+  /* ══════════ COLOR / GRADIENT HELPERS (legacy names preserved) ══════════ */
+
+  .tyre-text-gradient {
+    background: var(--tyre-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .tyre-text-pink { color: var(--tyre-green-deep); }
+  .tyre-bg-gradient { background: var(--tyre-gradient); }
+  .tyre-bg-gradient-soft { background: var(--tyre-gradient-soft); }
+  .tyre-aura-band { background: var(--tyre-aura); filter: saturate(1.02); }
+  .tyre-dot { @apply inline-block w-1.5 h-1.5 rounded-full bg-[var(--tyre-signal)]; }
+
+  /* ══════════ BACKGROUND TEXTURES ══════════ */
+
+  /* Dotted survey grid, warm */
+  .tyre-grid-bg {
+    background-image: radial-gradient(circle, rgba(18, 16, 11, 0.08) 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+  .tyre-grid-bg-light {
+    background-image: radial-gradient(circle, rgba(255, 250, 235, 0.09) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Film grain */
+  .tyre-grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.45;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  }
+
+  /* Lane divider — animated dashed road line (horizontal) */
+  @keyframes tyre-lane { to { background-position-x: -64px; } }
+  .tyre-lane {
+    height: 2px;
+    background-image: linear-gradient(90deg, currentColor 0 34px, transparent 34px 64px);
+    background-size: 64px 2px;
+    animation: tyre-lane 1.6s linear infinite;
+  }
+
+  /* ══════════ MOTION LIBRARY ══════════ */
+
+  @keyframes tyre-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .tyre-marquee { animation: tyre-marquee 32s linear infinite; }
+  .tyre-marquee-slow { animation: tyre-marquee 48s linear infinite; }
+  .tyre-marquee:hover, .tyre-marquee-slow:hover { animation-play-state: paused; }
+
+  @keyframes tyre-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-9px); }
+  }
+  .tyre-float { animation: tyre-float 5.5s ease-in-out infinite; }
+
+  @keyframes tyre-draw { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
+  .tyre-draw { stroke-dasharray: 600; animation: tyre-draw 1.8s var(--ease-brake) forwards; }
+
+  @keyframes tyre-route-draw { to { stroke-dashoffset: 0; } }
+  .tyre-route {
+    stroke-dasharray: 1400;
+    stroke-dashoffset: 1400;
+    animation: tyre-route-draw 2.4s var(--ease-expo) forwards;
+  }
+
+  /* Hero char entrance (legacy, kept for compat) */
+  @keyframes tyre-letter-pop {
+    0%   { opacity: 0; transform: translateY(34px) scale(0.8) rotateX(38deg); }
+    60%  { opacity: 1; transform: translateY(-4px) scale(1.04) rotateX(0deg); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0deg); }
+  }
+  .tyre-hero-line { perspective: 800px; }
+  .tyre-hero-char {
+    display: inline-block;
+    opacity: 0;
+    transform-origin: 50% 100%;
+    animation: tyre-letter-pop 0.7s var(--ease-expo) forwards;
+  }
+
+  @keyframes tyre-title-glow {
+    0%, 100% { text-shadow: 0 0 12px rgba(61,107,255,0.3), 0 0 30px rgba(61,107,255,0.15); }
+    50%      { text-shadow: 0 0 18px rgba(61,107,255,0.6), 0 0 44px rgba(61,107,255,0.35); }
+  }
+  .tyre-glow { animation: tyre-title-glow 4s ease-in-out 1.1s infinite alternate; }
+
+  @keyframes tyre-eq-small { 0%, 100% { height: 3px; } 50% { height: 8px; } }
+  @keyframes tyre-eq-big { 0%, 100% { height: 3px; } 50% { height: 13px; } }
+
+  /* Highway light streaks */
+  @keyframes tyre-streak {
+    0%   { transform: translateX(-35vw); opacity: 0; }
+    12%  { opacity: 1; }
+    88%  { opacity: 1; }
+    100% { transform: translateX(135vw); opacity: 0; }
+  }
+  .tyre-streak { animation: tyre-streak linear infinite; will-change: transform; }
+
+  @keyframes tyre-spark {
+    0%   { transform: translateY(0) scale(1); opacity: 0; }
+    20%  { opacity: 0.9; }
+    100% { transform: translateY(-90px) scale(0.4); opacity: 0; }
+  }
+  .tyre-spark { animation: tyre-spark ease-out infinite; will-change: transform, opacity; }
+
+  @keyframes tyre-pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.15); }
+  }
+  .tyre-pulse-dot { animation: tyre-pulse-dot 2s ease-in-out infinite; }
+
+  @keyframes tyre-fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .tyre-fade-up { animation: tyre-fade-up 0.6s var(--ease-cubic) backwards; }
+
+  @keyframes tyre-aurora {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(4%, -6%) scale(1.08); }
+    66% { transform: translate(-4%, 4%) scale(0.96); }
+  }
+  .tyre-aurora { animation: tyre-aurora 18s ease-in-out infinite; }
+
+  /* HUD scanline — sweeps across dark consoles */
+  @keyframes tyre-scan {
+    0%   { transform: translateY(-100%); opacity: 0; }
+    15%  { opacity: 0.7; }
+    85%  { opacity: 0.7; }
+    100% { transform: translateY(420%); opacity: 0; }
+  }
+  .tyre-scan {
+    position: absolute;
+    inset-inline: 0;
+    height: 25%;
+    background: linear-gradient(to bottom, transparent, rgba(61,107,255,0.05), transparent);
+    animation: tyre-scan 5s var(--ease-cubic) infinite;
+    pointer-events: none;
+  }
+
+  /* Odometer tick for live numbers */
+  @keyframes tyre-tick {
+    0% { transform: translateY(0.6em); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  .tyre-tick { display: inline-block; animation: tyre-tick 0.45s var(--ease-expo) both; }
+
+  /* Rotating conic gradient — animated card border / halo */
+  @keyframes tyre-spin { to { transform: rotate(360deg); } }
+  .tyre-spin-slow { animation: tyre-spin 9s linear infinite; }
+  .tyre-conic {
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      var(--tyre-signal) 70deg,
+      #45D8FF 120deg,
+      transparent 200deg,
+      transparent 360deg
+    );
+  }
+
+  /* Drifting ambient particle — slow float + fade */
+  @keyframes tyre-drift {
+    0%   { transform: translate(0, 0); opacity: 0; }
+    15%  { opacity: 0.8; }
+    85%  { opacity: 0.8; }
+    100% { transform: translate(var(--dx, 12px), -120px); opacity: 0; }
+  }
+  .tyre-drift { animation: tyre-drift linear infinite; will-change: transform, opacity; }
+
+  /* Shine sweep — light passes across a surface on hover/loop */
+  @keyframes tyre-shine {
+    0%   { transform: translateX(-120%) skewX(-18deg); }
+    100% { transform: translateX(220%) skewX(-18deg); }
+  }
+  .tyre-shine { animation: tyre-shine 3.4s var(--ease-cubic) infinite; }
+
+  /* Flowing dashed road centerline — endless travel along a path */
+  @keyframes tyre-route-flow { to { stroke-dashoffset: -240; } }
+  .tyre-route-flow { animation: tyre-route-flow 4s linear infinite; }
+
+  /* Soft breathing glow for the route body */
+  @keyframes tyre-route-glow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.9; }
+  }
+  .tyre-route-glow { animation: tyre-route-glow 3.5s ease-in-out infinite; }
+
+  /* ══════════ CINEMATIC ONBOARDING ══════════ */
+
+  /* Volumetric light ray — slow breathe */
+  @keyframes tyre-ray { 0%, 100% { opacity: 0; } 50% { opacity: 0.5; } }
+  .tyre-ray { animation: tyre-ray 11s ease-in-out infinite; }
+
+  /* Star twinkle */
+  @keyframes tyre-twinkle { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.7; } }
+  .tyre-twinkle { animation: tyre-twinkle 4.5s ease-in-out infinite; }
+
+  /* AI network node pulse */
+  @keyframes tyre-node { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.9; } }
+  .tyre-node { animation: tyre-node 3.2s ease-in-out infinite; }
+
+  /* Fog drift */
+  @keyframes tyre-fog {
+    0% { transform: translateX(-6%); opacity: 0.05; }
+    50% { opacity: 0.12; }
+    100% { transform: translateX(6%); opacity: 0.05; }
+  }
+  .tyre-fog { animation: tyre-fog 24s ease-in-out infinite alternate; }
+
+  /* Frosted glass input surface */
+  .tyre-glass {
+    background: color-mix(in srgb, var(--card) 72%, transparent);
+    backdrop-filter: blur(14px) saturate(1.15);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    transition: border-color 0.25s var(--ease-cubic), box-shadow 0.3s var(--ease-cubic), transform 0.2s var(--ease-snap);
+  }
+  .tyre-glass:focus-within {
+    border-color: var(--tyre-signal);
+    box-shadow: 0 0 0 4px rgba(61, 107, 255, 0.14), 0 10px 30px -14px rgba(61, 107, 255, 0.4);
+    transform: translateY(-1px);
+  }
+
+  /* Magnetic button base — liquid gradient + underglow */
+  .tyre-magnetic {
+    position: relative;
+    background: var(--tyre-gradient);
+    box-shadow:
+      0 10px 34px -10px rgba(61, 107, 255, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -2px 0 rgba(44, 70, 200, 0.4);
+    transition: box-shadow 0.35s var(--ease-cubic), filter 0.2s;
+    overflow: hidden;
+  }
+  .tyre-magnetic:hover {
+    box-shadow:
+      0 20px 50px -12px rgba(61, 107, 255, 0.72),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      inset 0 -2px 0 rgba(44, 70, 200, 0.4);
+    filter: brightness(1.05);
+  }
+
+  /* ══════════ CHROME ══════════ */
+
+  .tyre-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .tyre-scroll::-webkit-scrollbar-track { background: transparent; }
+  .tyre-scroll::-webkit-scrollbar-thumb {
+    background: rgba(18, 16, 11, 0.16);
+    border-radius: 999px;
+  }
+  .tyre-scroll::-webkit-scrollbar-thumb:hover { background: rgba(64, 98, 232, 0.6); }
+
+  .tyre-section { @apply py-14 sm:py-20 lg:py-24; }
+
+  /* Link underline draw */
+  .tyre-link { position: relative; }
+  .tyre-link::after {
+    content: "";
+    position: absolute;
+    left: 0; bottom: -2px;
+    height: 1.5px; width: 100%;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.35s var(--ease-expo);
+  }
+  .tyre-link:hover::after { transform: scaleX(1); transform-origin: left; }
+
+  /* Luxurious focus — double ring, no jump */
+  .tyre-focus:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--background),
+      0 0 0 4px var(--ring);
+    transition: box-shadow 0.2s var(--ease-cubic);
+  }
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  .tyre-marquee, .tyre-marquee-slow, .tyre-aurora, .tyre-pulse-dot, .tyre-fade-up,
+  .tyre-glow, .tyre-float, .tyre-lane, .tyre-scan, .tyre-tick,
+  .tyre-spin-slow, .tyre-drift, .tyre-shine,
+  .tyre-route-flow, .tyre-route-glow,
+  .tyre-ray, .tyre-twinkle, .tyre-node, .tyre-fog {
+    animation: none !important;
+  }
+  .tyre-hero-char { opacity: 1 !important; transform: none !important; animation: none !important; }
+  .tyre-mask > * { animation: none !important; transform: none !important; }
+  .animate-ping, .animate-pulse, .animate-spin, .animate-bounce {
+    animation: none !important;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

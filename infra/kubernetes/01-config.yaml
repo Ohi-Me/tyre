@@ -1,0 +1,111 @@
+# TYRE — ConfigMap + Secret refs (non-sensitive config).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tyre-config
+  namespace: tyre-prod
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  AI_GATEWAY_URL: "http://tyre-ai.tyre-prod.svc.cluster.local:8000"
+  KAFKA_BROKERS: "kafka.tyre-prod.svc.cluster.local:9092"
+  QDRANT_URL: "http://qdrant.tyre-prod.svc.cluster.local:6333"
+  REDIS_URL: "redis://redis.tyre-prod.svc.cluster.local:6379"
+  TYRE_REDIS_URL: "redis://redis.tyre-prod.svc.cluster.local:6379"
+  TYRE_QDRANT_URL: "http://qdrant.tyre-prod.svc.cluster.local:6333"
+  TYRE_KAFKA_BROKERS: "kafka.tyre-prod.svc.cluster.local:9092"
+  LOG_LEVEL: "info"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.tyre-prod.svc.cluster.local:4318"
+  # ── Phase 0 / v1.1 non-sensitive config ──────────────────────────────────────
+  TYRE_WEB_BFF_URL: "http://tyre-web.tyre-prod.svc.cluster.local:3000"
+  TYRE_WHATSAPP_API_VERSION: "v18.0"
+  TYRE_SMS_PROVIDER: "msg91"
+  TYRE_SMS_SENDER_ID: "TYRE"
+  # Telegram Bot API base (broker channel — Week 1 of the WhatsApp↔Telegram bridge).
+  # Override only if routing through a self-hosted Bot API server.
+  TYRE_TELEGRAM_API_BASE: "https://api.telegram.org"
+  # Read replica DSN (item #9) — points at the tyre-pg-ro service defined below.
+  # The password component is injected from tyre-secrets at deploy time; this is the
+  # non-secret host/db portion. Override fully via tyre-phase0-secrets if preferred.
+  TYRE_DATABASE_URL_READONLY: "postgres://tyre@tyre-pg-ro.tyre-prod.svc.cluster.local:5432/tyre_db"
+  POSTHOG_HOST: "https://app.posthog.com"
+---
+# Phase 0 / v1.1 secrets (item #1, #14). Populate stringData with real values
+# (sealed-secrets / external-secrets recommended in prod — do NOT commit real values).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tyre-phase0-secrets
+  namespace: tyre-prod
+type: Opaque
+stringData:
+  TYRE_INTERNAL_SERVICE_TOKEN: ""        # openssl rand -hex 32
+  TYRE_RAZORPAY_KEY_ID: ""               # Razorpay dashboard → Settings → API Keys
+  TYRE_RAZORPAY_KEY_SECRET: ""
+  TYRE_RAZORPAY_ROUTE_ACCOUNT_ID: ""     # Razorpay → Route → Linked Accounts
+  TYRE_RAZORPAY_WEBHOOK_SECRET: ""       # Razorpay → Settings → Webhooks
+  TYRE_WHATSAPP_TOKEN: ""                # Meta → App → WhatsApp → System User token
+  TYRE_WHATSAPP_PHONE_NUMBER_ID: ""
+  TYRE_WHATSAPP_VERIFY_TOKEN: ""         # openssl rand -hex 16 (Meta webhook handshake)
+  TYRE_WHATSAPP_APP_SECRET: ""           # Meta → App → WhatsApp → Configuration → Webhook secret
+  # Telegram bridge (Week 1) — broker channel
+  TYRE_TELEGRAM_BOT_TOKEN: ""            # @BotFather → /newbot → copy token
+  TYRE_TELEGRAM_WEBHOOK_SECRET: ""       # openssl rand -hex 32 (set as secret_token on setWebhook)
+  TYRE_SMS_API_KEY: ""                   # MSG91 / Twilio API key
+  TYRE_PII_ENCRYPTION_KEY: ""            # openssl rand -base64 32 (decodes to 32 bytes)
+  SENTRY_DSN: ""                         # Sentry project DSN (item #8)
+  POSTHOG_API_KEY: ""                    # PostHog project API key (item #8)
+---
+# Read-replica service (TYRE v1.1 item #9) — exposes the CloudNativePG replica pods
+# so analytics/metrics reads (admin/metrics, trust/scores, stats/hourly via dbRead)
+# don't contend with write-critical escrow paths on the primary.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tyre-pg-ro
+  namespace: tyre-prod
+spec:
+  selector:
+    cnpg.io/cluster: tyre-pg
+    role: replica
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+# Postgres (managed via CloudNativePG operator)
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: tyre-pg
+  namespace: tyre-prod
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.2
+  primaryUpdateStrategy: unsupervised
+  storage:
+    storageClass: gp3
+    size: 100Gi
+  monitoring:
+    enablePodMonitor: true
+  backup:
+    barmanObjectStore:
+      destinationPath: s3://tyre-pg-backups/
+      endpointURL: https://s3.ap-south-1.amazonaws.com
+      s3Credentials:
+        accessKeyIdReference: {name: tyre-secrets, key: aws-access-key-id}
+        secretAccessKeyReference: {name: tyre-secrets, key: aws-secret-access-key}
+      wal: {retention: 168h, compression: snappy}
+      data: {retention: 30d}
+    retentionPolicy: "30d"
+---
+# Redis (via Redis Operator)
+apiVersion: redis.redis.opstreelabs.in/v1beta1
+kind: Redis
+metadata:
+  name: tyre-redis
+  namespace: tyre-prod
+spec:
+  mode: cluster
+  size: 3
+  persistence: {enabled: true, size: 10Gi}

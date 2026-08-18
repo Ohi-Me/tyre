@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="96" fill="#0B0B0F"/>
+  
+  <!-- Top bar of T -->
+  <path d="M120 110 L392 110 L360 150 L152 150 Z" fill="#FFFFFF"/>
+  
+  <!-- Road body -->
+  <path d="M236 150 L276 150 L320 430 L192 430 Z" fill="#FFD400"/>
+  
+  <!-- Road center markings -->
+  <rect x="248" y="180" width="16" height="40" rx="4" fill="#0B0B0F"/>
+  <rect x="248" y="250" width="16" height="40" rx="4" fill="#0B0B0F"/>
+  <rect x="248" y="320" width="16" height="40" rx="4" fill="#0B0B0F"/>
+</svg>

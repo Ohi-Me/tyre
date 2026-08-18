@@ -1,0 +1,57 @@
+# TYRE Web — Next.js deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tyre-web
+  namespace: tyre-prod
+  labels: {app: tyre-web}
+spec:
+  replicas: 3
+  strategy: {type: RollingUpdate, rollingUpdate: {maxSurge: 1, maxUnavailable: 0}}
+  selector:
+    matchLabels: {app: tyre-web}
+  template:
+    metadata:
+      labels: {app: tyre-web}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/api/v1/metrics"
+    spec:
+      containers:
+        - name: tyre-web
+          image: ghcr.io/tyre/tyre-web:stable
+          ports: [{containerPort: 3000, name: http}]
+          envFrom:
+            - configMapRef: {name: tyre-config}
+            - secretRef: {name: tyre-secrets}
+            - secretRef: {name: tyre-phase0-secrets}  # v1.1 item #1/#14
+          resources:
+            requests: {memory: "512Mi", cpu: "500m"}
+            limits: {memory: "1Gi", cpu: "1000m"}
+          readinessProbe:
+            httpGet: {path: /api/v1/health, port: 3000}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /api/v1/health, port: 3000}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tyre-web
+  namespace: tyre-prod
+spec:
+  type: ClusterIP
+  selector: {app: tyre-web}
+  ports: [{name: http, port: 80, targetPort: 3000}]
+# HPA moved to tyre-web-hpa.yaml (CPU>70%, 3-20 replicas) per INFRA-C8.

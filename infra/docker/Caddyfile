@@ -1,0 +1,72 @@
+# TYRE v3 — Caddy reverse proxy config
+# Auto-HTTPS via Let's Encrypt, routes /api/ai/* to Python gateway.
+
+{
+  email ops@tyre.example.com
+  # staging {
+  #   ca https://acme-staging-v02.api.letsencrypt.org/directory
+  # }
+}
+
+tyre.example.com {
+  # API routes → FastAPI Python gateway
+  @ai path /api/ai /api/ai/*
+  handle @ai {
+    uri strip_prefix /api/ai
+    reverse_proxy tyre-ai:8000 {
+      header_up X-Real-IP {remote_host}
+      header_up X-Forwarded-For {remote_host}
+    }
+  }
+
+  # Voice / WebSocket → FastAPI
+  @voice path /voice /voice/*
+  handle @voice {
+    reverse_proxy tyre-ai:8000
+  }
+
+  # Everything else → Next.js
+  handle {
+    reverse_proxy tyre-web:3000
+  }
+
+  encode gzip zstd
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy strict-origin-when-cross-origin
+    Permissions-Policy "camera=(), microphone=(self), geolocation=(self)"
+  }
+
+  log {
+    output file /data/access.log {
+      roll_size 100mb
+      roll_keep 7
+    }
+    format json
+  }
+}
+
+# Internal-only services (admin, jaeger, grafana) — bind to localhost
+internal.tyre.example.com {
+  # Caddyfile directive blocks require the opening `{` to be on its own line —
+  # inline `handle … { … }` fails with "Unexpected next token after '{' on same line".
+  @admin path /admin /admin/*
+  handle @admin {
+    reverse_proxy tyre-web:3000
+  }
+  handle /jaeger/* {
+    reverse_proxy jaeger:16686
+  }
+  handle /grafana/* {
+    reverse_proxy grafana:3000
+  }
+  handle /prometheus/* {
+    reverse_proxy prometheus:9090
+  }
+
+  # IP allowlist (replace with your office CIDR)
+  @blocked not remote_ip 10.0.0.0/8 192.168.0.0/16
+  abort @blocked
+}

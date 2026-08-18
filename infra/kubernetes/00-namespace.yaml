@@ -1,0 +1,30 @@
+# TYRE v3 — Kubernetes namespace + sealed secrets placeholder.
+# Replace sealed-secrets data via kubeseal before apply.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tyre-prod
+  labels:
+    app.kubernetes.io/part-of: tyre
+    app.kubernetes.io/version: "3.0.0"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tyre-secrets
+  namespace: tyre-prod
+type: Opaque
+stringData:
+  database-url: "REPLACE"
+  groq-api-key: "REPLACE"
+  redis-url: "redis://redis.tyre-prod.svc.cluster.local:6379"
+  qdrant-url: "http://qdrant.tyre-prod.svc.cluster.local:6333"
+  razorpay-key-id: "REPLACE"
+  razorpay-key-secret: "REPLACE"
+  whatsapp-business-token: "REPLACE"
+  whisper-api-key: "REPLACE"
+  elevenlabs-api-key: "REPLACE"
+  google-maps-api-key: "REPLACE"
+  gst-verification-api-key: "REPLACE"
+  nextauth-secret: "REPLACE"

@@ -1,0 +1,74 @@
+# TYRE AI Gateway — Python FastAPI deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tyre-ai
+  namespace: tyre-prod
+  labels: {app: tyre-ai}
+spec:
+  replicas: 2
+  strategy: {type: RollingUpdate}
+  selector: {matchLabels: {app: tyre-ai}}
+  template:
+    metadata:
+      labels: {app: tyre-ai}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: tyre-ai
+          image: ghcr.io/tyre/tyre-ai:stable
+          ports: [{containerPort: 8000, name: http}]
+          envFrom:
+            - configMapRef: {name: tyre-config}
+            - secretRef: {name: tyre-secrets}
+            - secretRef: {name: tyre-phase0-secrets}  # v1.1 item #1/#14
+          resources:
+            requests: {memory: "1Gi", cpu: "750m"}
+            limits: {memory: "4Gi", cpu: "2000m"}
+          readinessProbe:
+            httpGet: {path: /ready, port: 8000}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tyre-ai
+  namespace: tyre-prod
+spec:
+  type: ClusterIP
+  selector: {app: tyre-ai}
+  ports: [{name: http, port: 80, targetPort: 8000}]
+# HPA moved to tyre-ai-hpa.yaml (CPU>70%, 2-10 replicas) per INFRA-C8.
+---
+# Optional: GPU node pool for vLLM (uncomment if running self-hosted LLMs)
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: tyre-vllm
+#   namespace: tyre-prod
+# spec:
+#   replicas: 1
+#   selector: {matchLabels: {app: tyre-vllm}}
+#   template:
+#     metadata: {labels: {app: tyre-vllm}}
+#     spec:
+#       nodeSelector: {accelerator: nvidia-a10g}
+#       containers:
+#         - name: vllm
+#           image: vllm/vllm-openai:latest
+#           args: ["--model", "Qwen/Qwen2.5-32B-Instruct", "--tensor-parallel-size", "1"]
+#           resources:
+#             limits: {nvidia.com/gpu: 1}

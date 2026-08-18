@@ -1,0 +1,33 @@
+# TYRE AI Gateway — HorizontalPodAutoscaler
+# Scales the FastAPI AI gateway on CPU > 70%, 2–10 replicas.
+# Supersedes any inline HPA previously embedded in 20-ai.yaml.
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: tyre-ai-hpa
+  namespace: tyre-prod
+  labels: {app: tyre-ai}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tyre-ai
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - {type: Percent, value: 100, periodSeconds: 30}
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - {type: Percent, value: 25, periodSeconds: 60}
+      selectPolicy: Min

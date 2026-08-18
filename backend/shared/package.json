@@ -1,0 +1,24 @@
+{
+  "name": "@tyre/shared",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./utils/index.ts",
+  "types": "./utils/index.ts",
+  "exports": {
+    ".": "./utils/index.ts",
+    "./types": "./types/index.ts",
+    "./constants": "./constants/index.ts",
+    "./utils/*": "./utils/*",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tyre/db": "workspace:*",
+    "zod": "^4.0.2"
+  }
+}

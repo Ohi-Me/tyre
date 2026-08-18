@@ -1,0 +1,10 @@
+packages:
+  # Frontend
+  - "frontend/web"
+  # Backend
+  - "backend/api"
+  - "backend/database"
+  - "backend/shared"
+  - "backend/shared/auth"
+  - "backend/shared/i18n"
+  - "backend/ai/client"

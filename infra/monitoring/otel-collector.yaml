@@ -1,0 +1,46 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: prod
+        action: upsert
+
+exporters:
+  # The standalone `jaeger` exporter was removed from the Collector (>=0.85).
+  # Jaeger all-in-one accepts OTLP directly (COLLECTOR_OTLP_ENABLED=true), so push
+  # traces via OTLP/gRPC to jaeger:4317.
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+  # NOTE: a logs pipeline was dropped — it exported to a `loki` service that is not
+  # part of this compose stack (and the standalone loki exporter is deprecated).
+  # Re-add an otlphttp exporter + a Loki service together when logs are wired up.

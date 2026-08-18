@@ -1,0 +1,54 @@
+# TYRE — Ingress + ai-gateway NetworkPolicy.
+# PDBs moved to tyre-web-pdb.yaml and tyre-ai-pdb.yaml (INFRA-C8).
+# The default-deny baseline lives in network-policy-default-deny.yaml; the
+# allow-list below is the workload-specific exception that lets tyre-web and
+# nginx-ingress reach the AI gateway on :8000.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tyre-ingress
+  namespace: tyre-prod
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-Frame-Options: DENY";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [tyre.example.com]
+      secretName: tyre-tls
+  rules:
+    - host: tyre.example.com
+      http:
+        paths:
+          - path: /api/ai
+            pathType: Prefix
+            backend: {service: {name: tyre-ai, port: {number: 80}}}
+          - path: /voice
+            pathType: Prefix
+            backend: {service: {name: tyre-ai, port: {number: 80}}}
+          - path: /
+            pathType: Prefix
+            backend: {service: {name: tyre-web, port: {number: 80}}}
+---
+# NetworkPolicy — restrict ai-gateway to only receive traffic from tyre-web
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tyre-ai-netpol
+  namespace: tyre-prod
+spec:
+  podSelector: {matchLabels: {app: tyre-ai}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app: tyre-web}}
+        - podSelector: {matchLabels: {app: nginx-ingress}}
+      ports: [{port: 8000, protocol: TCP}]

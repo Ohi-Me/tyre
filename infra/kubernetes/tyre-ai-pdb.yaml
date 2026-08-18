@@ -1,0 +1,14 @@
+# TYRE AI Gateway — PodDisruptionBudget
+# Keeps at least 1 tyre-ai pod available during voluntary disruptions.
+# Supersedes the inline PDB previously embedded in 30-ingress.yaml.
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tyre-ai-pdb
+  namespace: tyre-prod
+  labels: {app: tyre-ai}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: tyre-ai}

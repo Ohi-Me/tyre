@@ -1,0 +1,33 @@
+# TYRE Web — HorizontalPodAutoscaler
+# Scales the Next.js frontend on CPU > 70%, 3–20 replicas.
+# Supersedes any inline HPA previously embedded in 10-web.yaml.
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: tyre-web-hpa
+  namespace: tyre-prod
+  labels: {app: tyre-web}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tyre-web
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - {type: Percent, value: 100, periodSeconds: 30}
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - {type: Percent, value: 25, periodSeconds: 60}
+      selectPolicy: Min

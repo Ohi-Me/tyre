@@ -1,0 +1,58 @@
+# TYRE — Helm chart values (alternative to k8s/ YAMLs for production installs)
+# Usage: helm install tyre ./infra/helm -f values.yaml
+
+replicaCount:
+  web: 3
+  ai: 2
+
+image:
+  web: {repository: ghcr.io/tyre/tyre-web, tag: latest, pullPolicy: IfNotPresent}
+  ai: {repository: ghcr.io/tyre/tyre-ai, tag: latest, pullPolicy: IfNotPresent}
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: tyre.example.com
+      paths:
+        - {path: /api/ai, service: ai}
+        - {path: /voice, service: ai}
+        - {path: /, service: web}
+  tls: [{secretName: tyre-tls, hosts: [tyre.example.com]}]
+
+resources:
+  web:
+    requests: {memory: 512Mi, cpu: 500m}
+    limits: {memory: 1Gi, cpu: 1000m}
+  ai:
+    requests: {memory: 1Gi, cpu: 750m}
+    limits: {memory: 4Gi, cpu: 2000m}
+
+autoscaling:
+  web: {enabled: true, minReplicas: 3, maxReplicas: 30, targetCPU: 65}
+  ai: {enabled: true, minReplicas: 2, maxReplicas: 20, targetCPU: 70}
+
+postgresql:
+  enabled: true
+  auth: {username: tyre, password: tyre_secure_pass_2025, database: tyre_db}
+  primary: {persistence: {size: 100Gi, storageClass: gp3}}
+
+redis:
+  enabled: true
+  architecture: replication
+  master: {persistence: {size: 10Gi}}
+
+qdrant:
+  enabled: true
+  persistence: {size: 50Gi}
+
+kafka:
+  enabled: true
+  replicaCount: 3
+  defaultReplicationFactor: 3
+
+observability:
+  otel: {enabled: true}
+  jaeger: {enabled: true}
+  prometheus: {enabled: true}
+  grafana: {enabled: true, adminPassword: admin}

@@ -1,0 +1,29 @@
+# TYRE — Default-deny NetworkPolicy for the tyre-prod namespace.
+#
+# Applies to every pod in tyre-prod that has no other NetworkPolicy selecting
+# it. Combined with the workload-specific allow-lists (see 30-ingress.yaml for
+# the tyre-ai allow-list), this implements a deny-by-default posture: any pod
+# not explicitly allowed to send/receive traffic is fully isolated.
+#
+# Note: NetworkPolicy is enforced ONLY by CNI plugins that support it
+# (Calico, Cilium, AWS VPC CNI w/ policy mode, etc.). On a bare kube-proxy
+# cluster these objects are accepted but silently ignored — verify your CNI.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: tyre-prod
+  annotations:
+    description: "Default-deny ingress + egress for any pod not matched by a more specific policy."
+spec:
+  # Empty podSelector selects ALL pods in the namespace.
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  # No ingress or egress rules ⇒ all traffic denied unless another policy
+  # explicitly allows it. (Kubernetes NetworkPolicy is additive: a pod is
+  # allowed if ANY policy selecting it allows the traffic.)
+  ingress: []
+  egress: []

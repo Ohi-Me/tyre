@@ -1,0 +1,38 @@
+# Build context exclusions for the tyre-web image (context = repo root).
+# Keep host (Windows) artifacts out of the Linux build context: faster uploads
+# and no native-binary contamination (Prisma engines, *.node, etc.).
+
+# Node
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/build
+**/.eslintcache
+**/*.tsbuildinfo
+
+# Python
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# VCS / editor / OS
+.git
+.github
+**/.DS_Store
+**/.idea
+**/.vscode
+
+# Local env & secrets (compose injects env via env_file at runtime)
+.env
+.env.*
+!.env.example
+
+# Logs & misc
+**/*.log
+**/coverage
+**/.cache

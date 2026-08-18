@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "allowJs": true,
+    "noEmit": true,
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    // FE-C9 fix: previously @tyre/* was mapped to ../../backend/.../src/index.ts
+    // here, contradicting package.json's workspace:* resolution. tsc --noEmit
+    // (typecheck) honored paths and resolved through source files; next build
+    // used workspace symlinks. Two different type views of the same package.
+    // Now @tyre/* is resolved via pnpm workspace symlinks (package.json main).
+    // Only @/* (app-local) is kept as a path.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

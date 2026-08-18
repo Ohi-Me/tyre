@@ -1,0 +1,279 @@
+# TYRE v3 — Production-grade multi-service Docker stack.
+# Usage:
+#   docker compose -f infra/docker/docker-compose.yml --env-file .env up -d
+#
+# Services:
+#   postgres     — Primary OLTP database
+#   redis        — Cache + queue + rate limit
+#   qdrant       — Vector DB (broker embeddings, fraud RAG)
+#   kafka        — GPS pings + trip events + agent events
+#   tyre-web     — Next.js (frontend + API routes)
+#   tyre-ai      — Python FastAPI (LangGraph orchestrator + 10 agents + voice)
+#   otel-collector — Telemetry pipeline
+#   prometheus   — Metrics
+#   grafana      — Dashboards
+#   caddy        — Reverse proxy + auto-HTTPS
+#
+# NOTE: All secrets MUST come from a gitignored .env file (loaded via env_file)
+# or from SealedSecrets / external-secrets in production. Never commit real
+# credentials to this repo.
+
+services:
+  # ─────────────────────────────────────────────
+  # Core datastores
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: tyre-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tyre}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-tyre_db}
+    ports: ["5432:5432"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tyre} -d ${POSTGRES_DB:-tyre_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [tyre-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: tyre-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports: ["6379:6379"]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [tyre-net]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: tyre-qdrant
+    restart: unless-stopped
+    ports: ["6333:6333", "6334:6334"]
+    volumes: [qdrant_data:/qdrant/storage]
+    networks: [tyre-net]
+
+  # ─────────────────────────────────────────────
+  # Event streaming
+  # ─────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: tyre-kafka
+    restart: unless-stopped
+    depends_on: [zookeeper]
+    ports: ["9092:9092", "9093:9093"]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks: [tyre-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: tyre-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks: [tyre-net]
+
+  # ─────────────────────────────────────────────
+  # Apps
+  # ─────────────────────────────────────────────
+  tyre-web:
+    build:
+      context: ../..
+      dockerfile: frontend/web/Dockerfile
+    container_name: tyre-web
+    restart: unless-stopped
+    ports: ["3000:3000"]
+    env_file: [../../.env]
+    environment:
+      - NODE_ENV=production
+      # Bind the Next standalone server to all interfaces (see frontend/web/Dockerfile);
+      # otherwise the in-container healthcheck hits a refused localhost:3000.
+      - HOSTNAME=0.0.0.0
+      - DATABASE_URL=postgres://${POSTGRES_USER:-tyre}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tyre_db}
+      # Read replica (item #9): single-node compose has no replica, so point the RO
+      # client at the same Postgres — dbRead falls back transparently.
+      - TYRE_DATABASE_URL_READONLY=postgres://${POSTGRES_USER:-tyre}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tyre_db}
+      - REDIS_URL=redis://redis:6379
+      - AI_GATEWAY_URL=http://tyre-ai:8000
+      - KAFKA_BROKERS=kafka:9092
+      - QDRANT_URL=http://qdrant:6333
+      # ── Phase 0 / v1.1 vars (also loaded via env_file; declared here so local dev
+      #    runs in non-SIMULATED mode when .env has real sandbox credentials) ──
+      - TYRE_INTERNAL_SERVICE_TOKEN=${TYRE_INTERNAL_SERVICE_TOKEN}
+      - TYRE_RAZORPAY_KEY_ID=${TYRE_RAZORPAY_KEY_ID}
+      - TYRE_RAZORPAY_KEY_SECRET=${TYRE_RAZORPAY_KEY_SECRET}
+      - TYRE_RAZORPAY_WEBHOOK_SECRET=${TYRE_RAZORPAY_WEBHOOK_SECRET}
+      - TYRE_WHATSAPP_TOKEN=${TYRE_WHATSAPP_TOKEN}
+      - TYRE_WHATSAPP_PHONE_NUMBER_ID=${TYRE_WHATSAPP_PHONE_NUMBER_ID}
+      - TYRE_WHATSAPP_VERIFY_TOKEN=${TYRE_WHATSAPP_VERIFY_TOKEN}
+      - TYRE_WHATSAPP_APP_SECRET=${TYRE_WHATSAPP_APP_SECRET}
+      # Telegram bridge (Week 1) — broker channel
+      - TYRE_TELEGRAM_BOT_TOKEN=${TYRE_TELEGRAM_BOT_TOKEN}
+      - TYRE_TELEGRAM_WEBHOOK_SECRET=${TYRE_TELEGRAM_WEBHOOK_SECRET}
+      - TYRE_TELEGRAM_API_BASE=${TYRE_TELEGRAM_API_BASE:-https://api.telegram.org}
+      - TYRE_SMS_PROVIDER=${TYRE_SMS_PROVIDER}
+      - TYRE_SMS_API_KEY=${TYRE_SMS_API_KEY}
+      - TYRE_PII_ENCRYPTION_KEY=${TYRE_PII_ENCRYPTION_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - POSTHOG_API_KEY=${POSTHOG_API_KEY}
+      - POSTHOG_HOST=${POSTHOG_HOST:-https://app.posthog.com}
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      tyre-ai: {condition: service_healthy}
+    healthcheck:
+      # 127.0.0.1 (not localhost): busybox wget tries ::1 first, which the IPv4 server refuses.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [tyre-net]
+
+  tyre-ai:
+    build:
+      context: ../..
+      dockerfile: backend/ai/gateway/Dockerfile
+    container_name: tyre-ai
+    restart: unless-stopped
+    ports: ["8000:8000"]
+    env_file: [../../.env]
+    environment:
+      - TYRE_DATABASE_URL=postgres://${POSTGRES_USER:-tyre}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tyre_db}
+      - TYRE_REDIS_URL=redis://redis:6379
+      - TYRE_QDRANT_URL=http://qdrant:6333
+      - TYRE_KAFKA_BROKERS=kafka:9092
+      # BFF base URL as seen from inside the ai container (NOT localhost — that would
+      # hit the ai container itself). This is the write-back target for bff_client.
+      - TYRE_WEB_BFF_URL=http://tyre-web:3000
+      # ── Phase 0 / v1.1 vars (also via env_file; explicit so the gateway leaves
+      #    SIMULATED mode when .env has real sandbox credentials) ──
+      - TYRE_INTERNAL_SERVICE_TOKEN=${TYRE_INTERNAL_SERVICE_TOKEN}
+      - TYRE_RAZORPAY_KEY_ID=${TYRE_RAZORPAY_KEY_ID}
+      - TYRE_RAZORPAY_KEY_SECRET=${TYRE_RAZORPAY_KEY_SECRET}
+      - TYRE_RAZORPAY_ROUTE_ACCOUNT_ID=${TYRE_RAZORPAY_ROUTE_ACCOUNT_ID}
+      - TYRE_RAZORPAY_WEBHOOK_SECRET=${TYRE_RAZORPAY_WEBHOOK_SECRET}
+      - TYRE_WHATSAPP_TOKEN=${TYRE_WHATSAPP_TOKEN}
+      - TYRE_WHATSAPP_PHONE_NUMBER_ID=${TYRE_WHATSAPP_PHONE_NUMBER_ID}
+      - TYRE_WHATSAPP_API_VERSION=${TYRE_WHATSAPP_API_VERSION:-v18.0}
+      - TYRE_WHATSAPP_APP_SECRET=${TYRE_WHATSAPP_APP_SECRET}
+      # Telegram bridge (Week 1) — broker channel
+      - TYRE_TELEGRAM_BOT_TOKEN=${TYRE_TELEGRAM_BOT_TOKEN}
+      - TYRE_TELEGRAM_WEBHOOK_SECRET=${TYRE_TELEGRAM_WEBHOOK_SECRET}
+      - TYRE_TELEGRAM_API_BASE=${TYRE_TELEGRAM_API_BASE:-https://api.telegram.org}
+      - TYRE_SMS_PROVIDER=${TYRE_SMS_PROVIDER}
+      - TYRE_SMS_API_KEY=${TYRE_SMS_API_KEY}
+      - TYRE_SMS_SENDER_ID=${TYRE_SMS_SENDER_ID:-TYRE}
+      - TYRE_PII_ENCRYPTION_KEY=${TYRE_PII_ENCRYPTION_KEY}
+      - TYRE_SENTRY_DSN=${SENTRY_DSN}
+      - TYRE_AZURE_SPEECH_KEY=${AZURE_SPEECH_KEY}
+      - TYRE_POSTHOG_API_KEY=${POSTHOG_API_KEY}
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      qdrant: {condition: service_started}
+      kafka: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [tyre-net]
+
+  # ─────────────────────────────────────────────
+  # Observability
+  # ─────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    container_name: tyre-otel
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ../monitoring/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports: ["4317:4317", "4318:4318"]
+    depends_on: [jaeger]
+    networks: [tyre-net]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: tyre-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports: ["16686:16686"]
+    networks: [tyre-net]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: tyre-prometheus
+    restart: unless-stopped
+    volumes:
+      - ../monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports: ["9090:9090"]
+    networks: [tyre-net]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tyre-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set in .env}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports: ["3001:3000"]
+    depends_on: [prometheus]
+    networks: [tyre-net]
+
+  # ─────────────────────────────────────────────
+  # Edge proxy (auto-HTTPS + reverse proxy)
+  # ─────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: tyre-caddy
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [tyre-web, tyre-ai]
+    networks: [tyre-net]
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  prometheus_data:
+  grafana_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  tyre-net:
+    driver: bridge

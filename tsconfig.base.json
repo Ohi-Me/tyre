@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@tyre/shared": ["./backend/shared/utils/index.ts"],
+      "@tyre/shared/types": ["./backend/shared/types/index.ts"],
+      "@tyre/shared/constants": ["./backend/shared/constants/index.ts"],
+      "@tyre/shared/*": ["./backend/shared/utils/*"],
+      "@tyre/db": ["./backend/database/prisma/index.ts"],
+      "@tyre/db/models": ["./backend/database/prisma/models.ts"],
+      "@tyre/i18n": ["./backend/shared/i18n/src/index.ts"],
+      "@tyre/i18n/*": ["./backend/shared/i18n/src/*"],
+      "@tyre/ai-client": ["./backend/ai/client/src/index.ts"],
+      "@tyre/ui": ["./frontend/shared-ui/src/index.ts"],
+      "@tyre/auth": ["./backend/shared/auth/src/index.ts"],
+      "@tyre/api": ["./backend/api/index.ts"],
+      "@tyre/api/*": ["./backend/api/*"]
+    }
+  },
+  "exclude": ["node_modules", ".next", "dist"]
+}

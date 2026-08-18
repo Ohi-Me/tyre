@@ -1,0 +1,1575 @@
+// TYRE v3 — Prisma Schema
+// AI Operating System for Emerging-Market Logistics
+// Multi-region · Multi-currency · Multi-tenant · 100+ languages
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // For local dev, set DATABASE_URL="file:./db/tyre.db" and change provider to "sqlite"
+  // (kept separate via the .env.dev example for convenience)
+}
+
+// ============================================================
+// Enums (audit fix INFRA-C16)
+// ------------------------------------------------------------
+// Previously all status / role / tier fields were `String` with inline
+// comments listing allowed values. No DB-level constraint, no type safety.
+// These enums make the valid value set explicit at the DB and Prisma
+// client boundary. Values mirror `backend/shared/constants/enums.ts`.
+// ============================================================
+
+enum UserRole {
+  driver
+  shipper
+  broker
+  fleet_manager
+  operator
+  admin
+  super_admin
+}
+
+enum Region {
+  IN
+  BD
+  PK
+  NP
+  LK
+  NG
+  KE
+  GH
+  ZA
+  EG
+  BR
+  MX
+  CO
+  PE
+  AE
+  SA
+  ID
+  VN
+  TH
+  PH
+}
+
+enum LoadStatus {
+  OPEN
+  NEGOTIATING
+  ASSIGNED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum TruckStatus {
+  IDLE
+  LOADING
+  IN_TRANSIT
+  UNLOADING
+  MAINTENANCE
+}
+
+enum TripStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ON_TRIP
+  OFFLINE
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PaymentStatus {
+  PENDING
+  ESCROW_HELD
+  ADVANCE_RELEASED
+  BALANCE_RELEASED
+  REFUNDED
+  DISPUTED
+}
+
+enum NegotiationDecision {
+  ACCEPTED
+  COUNTER
+  REJECTED
+}
+
+enum RfpStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  AWARDED
+  REJECTED
+}
+
+enum FraudRecommendation {
+  APPROVE
+  MONITOR
+  INVESTIGATE
+  BLOCK
+}
+
+enum FraudStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  FALSE_POSITIVE
+  BLOCKED
+}
+
+enum ComplianceDocStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ConsigneeConfirmationStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  EXPIRED
+}
+
+enum ReturnLoadMatchStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum VoiceOnboardingStatus {
+  INCOMPLETE
+  AWAITING_KYC
+  VERIFIED
+  REJECTED
+}
+
+enum ConversationStatus {
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum LastMileRouteStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum TransactionType {
+  FUNDING
+  ADVANCE_RELEASE
+  BALANCE_RELEASE
+  REFUND
+  TYRE_FEE
+}
+
+enum FastagTransactionType {
+  TOLL
+  RECHARGE
+  REFUND
+}
+
+enum TriggerType {
+  LOAD_ACCEPT
+  GPS_POD
+  CONSIGNEE_CONFIRM
+  CANCELLATION
+  ESCROW_FEE
+}
+
+enum EscrowStatus {
+  PENDING_FUNDING
+  FUNDED
+  ADVANCE_RELEASED
+  COMPLETED
+  REFUNDED
+  DISPUTED
+}
+
+enum AgentName {
+  Dispatch
+  Pricing
+  Fraud
+  Negotiation
+  Compliance
+  Contract
+  Payment
+  Route
+  Copilot
+  Fleet
+}
+
+enum AgentStatus {
+  active
+  processing
+  idle
+  error
+}
+
+enum VoiceIntent {
+  FIND_LOAD
+  CHECK_RATE
+  REPORT_ISSUE
+  NAVIGATE
+  STATUS
+  ACCEPT_LOAD
+  REQUEST_ADVANCE
+  UPLOAD_POD
+}
+
+enum EntityType {
+  BROKER
+  DRIVER
+  TRUCK
+  LOAD
+  TRIP
+  ORGANIZATION
+  SHIPPER
+  FLEET
+  NEGOTIATION
+}
+
+enum TrustTier {
+  Platinum
+  Gold
+  Silver
+  Bronze
+  Unverified
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
+}
+
+enum VerificationType {
+  AADHAAR
+  PAN
+  GSTIN
+  BANK
+  VEHICLE
+  PHONE
+  INSURANCE
+  ADDRESS
+}
+
+// ============================================================
+// Identity & Multi-tenancy
+// ============================================================
+
+model Organization {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  region          Region   @default(IN)
+  defaultCurrency String   @default("INR") // ISO 4217
+  defaultLocale   String   @default("en")
+  plan            String   @default("free") // free | growth | enterprise
+  gstin           String?  // India: GST identification
+  taxId           String?  // Generic: tax identifier outside India
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt       DateTime?
+
+  users  User[]
+  loads  Load[]
+  trips  Trip[]
+  rfps   ShipperRFP[]
+  trucks Truck[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  phone           String   @unique
+  email           String?
+  name            String
+  passwordHash    String?  @map("password_hash")
+  role            UserRole @default(driver) // driver | shipper | broker | fleet_manager | operator | admin | super_admin
+  isActive        Boolean  @default(true) @map("is_active")
+  lastLoginAt     DateTime? @map("last_login_at")
+  preferredLocale String   @default("en") @map("preferred_locale")
+  region          Region   @default(IN)
+  orgId           String   @map("org_id")
+  org             Organization @relation(fields: [orgId], references: [id])
+  kycVerified     Boolean  @default(false) @map("kyc_verified")
+  upiId           String?  @map("upi_id")
+  mobileMoneyId   String?  @map("mobile_money_id") // M-Pesa, MTN, etc.
+  pixKey          String?  @map("pix_key") // Brazil
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt       DateTime?
+
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+  @@index([orgId])
+  @@map("users")
+}
+
+// ============================================================
+// Auth — JWT access/refresh tokens, audit trail, service API keys
+// Ported & adapted from the axle-platform (Express/Prisma) backend's
+// auth subsystem during the TYRE 3-repo consolidation (see
+// MERGE_REPORT.md). TYRE's web app authenticates browser sessions via
+// NextAuth (phone-OTP, cookie/JWT session — see @tyre/auth/index.ts),
+// while these models back a stateless bearer-token layer used by:
+//   - apps/web/app/api/v1/auth/* REST endpoints (mobile clients, SSE
+//     voice sessions that connect directly to apps/ai-gateway)
+//   - service-to-service calls between the BFF and the AI gateway
+// ============================================================
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique @map("token_hash") // SHA-256 of the opaque raw token; raw value is never stored
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String   // e.g. "USER_LOGIN", "LOAD_ASSIGNED", "BROKER_BLOCKED", "ESCROW_RELEASED"
+  entityType EntityType @map("entity_type")
+  entityId   String   @map("entity_id")
+  metadata   String   @default("{}") // JSON
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt  DateTime?
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// NOTE: the canonical ApiKey model lives in the "ApiKey — Phase 0 fix" section
+// near the end of this file. An earlier duplicate definition here was removed —
+// Prisma rejects two models with the same name, which blocked `prisma generate`
+// and the api_keys migration (see TYRE v1.1 item #2).
+
+model Driver {
+  id              String   @id @default(cuid())
+  name            String
+  phone           String   @unique
+  preferredLang   String   @default("hi") @map("preferred_lang") // BCP-47
+  truckType       String?  @map("truck_type")
+  currentLocation String?  @map("current_location")
+  // Week 3 broadcast: GPS coords for the nearby-driver query. Updated by the
+  // voice pipeline when a driver shares location, or by periodic GPS pings.
+  // Nullable so existing driver rows (and seed data) are unaffected. Indexed
+  // via a composite index on (currentLat, currentLng, status) for the nearby
+  // query path.
+  currentLat      Float?   @map("current_lat")
+  currentLng      Float?   @map("current_lng")
+  currentRegion   Region   @default(IN) @map("current_region")
+  status          DriverStatus @default(AVAILABLE) // AVAILABLE | ON_TRIP | OFFLINE
+  rating          Float    @default(4.5)
+  totalTrips      Int      @default(0) @map("total_trips")
+  kycVerified     Boolean  @default(false) @map("kyc_verified")
+  upiId           String?  @map("upi_id")
+  mobileMoneyId   String?  @map("mobile_money_id")
+  pixKey          String?  @map("pix_key")
+  licenseNumber   String?  @map("license_number")
+  createdAt       DateTime @default(now()) @map("created_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt       DateTime?
+
+  trucks Truck[]
+
+  @@index([status, currentLat, currentLng])
+  @@map("drivers")
+}
+
+model Broker {
+  id           String   @id @default(cuid())
+  brokerCode   String   @unique @map("broker_code") // BRK-001
+  name         String
+  phone        String
+  gstin        String?
+  taxId        String?  @map("tax_id")
+  region       Region   @default(IN)
+  city         String?
+  riskScore    Int      @default(0) @map("risk_score") // 0-100
+  totalLoads   Int      @default(0) @map("total_loads")
+  paymentDefaults Int   @default(0) @map("payment_defaults")
+  verified     Boolean  @default(false)
+  // Telegram bridge (Week 1): chat_id of the broker who linked via /link in
+  // the @tyrebrokerbot. Null = not linked. Unique so two brokers can't share
+  // one chat. Indexed for the broker bot's /loads lookup path
+  // (GET /api/v1/brokers/by-telegram?chat_id=...).
+  telegramChatId   String?  @unique @map("telegram_chat_id")
+  telegramUsername String?  @map("telegram_username")
+  telegramLinkedAt DateTime? @map("telegram_linked_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt    DateTime?
+
+  loads        Load[]
+  fraudAlerts  FraudAlert[]
+
+  @@index([telegramChatId])
+  @@map("brokers")
+}
+
+// ============================================================
+// Loads & Trips
+// ============================================================
+
+model Load {
+  id              String   @id @default(cuid())
+  tyreCode        String   @unique @map("tyre_code") // TYRE-0001
+  orgId           String   @map("org_id")
+  org             Organization @relation(fields: [orgId], references: [id])
+  origin          String
+  // Week 3 broadcast: origin GPS for the nearby-driver query. Nullable so
+  // existing loads + seed data are unaffected; the broadcast service fails
+  // gracefully with a clear "set origin GPS" message when missing.
+  originLat       Float?   @map("origin_lat")
+  originLng       Float?   @map("origin_lng")
+  originRegion    Region   @default(IN) @map("origin_region")
+  destination     String
+  destinationLat  Float?   @map("destination_lat")
+  destinationLng  Float?   @map("destination_lng")
+  destinationRegion Region @default(IN) @map("destination_region")
+  distanceKm      Int      @map("distance_km")
+  weightTons      Float    @map("weight_tons")
+  truckTypeReq    String   @map("truck_type_req")
+  goodsType       String   @map("goods_type")
+  offeredRate     Float    @map("offered_rate")
+  aiSuggestedRate Float    @map("ai_suggested_rate")
+  advanceOffered  Float    @map("advance_offered")
+  currency        String   @default("INR") // ISO 4217
+  status          LoadStatus @default(OPEN)
+  riskLevel       RiskLevel @default(LOW)
+  brokerId        String   @map("broker_id")
+  broker          Broker   @relation(fields: [brokerId], references: [id])
+  assignedTruckId String?  @map("assigned_truck_id")
+  assignedTruck   Truck?   @relation(fields: [assignedTruckId], references: [id])
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt       DateTime?
+
+  negotiations Negotiation[]
+  trips        Trip[]
+
+  @@index([orgId, status])
+  @@index([originRegion, destinationRegion])
+  @@map("loads")
+}
+
+model Truck {
+  id                       String   @id @default(cuid())
+  orgId                    String   @map("org_id")
+  org                      Organization @relation(fields: [orgId], references: [id])
+  vehicleNumber            String   @unique @map("vehicle_number")
+  truckType                String   @map("truck_type")
+  driverId                 String?  @map("driver_id")
+  driver                   Driver?  @relation(fields: [driverId], references: [id])
+  currentLocation          String   @default("") @map("current_location")
+  currentRegion            Region   @default(IN) @map("current_region")
+  status                   TruckStatus @default(IDLE)
+  utilizationPct           Int      @default(0) @map("utilization_pct")
+  todaysKm                 Int      @default(0) @map("todays_km")
+  totalKmThisMonth         Int      @default(0) @map("total_km_this_month")
+  fuelEfficiencyKmpl       Float    @default(3.8) @map("fuel_efficiency_kmpl")
+  nextMaintenanceKm        Int      @default(10000) @map("next_maintenance_km")
+  lastMaintenanceDate      DateTime @default(now()) @map("last_maintenance_date")
+  predictedBreakdownRisk   RiskLevel @default(LOW) @map("predicted_breakdown_risk")
+  cargoLoaded              Boolean  @default(false) @map("cargo_loaded")
+  destination              String?
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt                DateTime?
+
+  loads Load[]
+  trips Trip[]
+
+  @@index([orgId, status])
+  @@map("trucks")
+}
+
+model Trip {
+  id           String   @id @default(cuid())
+  orgId        String   @map("org_id")
+  org          Organization @relation(fields: [orgId], references: [id])
+  loadId       String   @unique @map("load_id")
+  load         Load     @relation(fields: [loadId], references: [id])
+  truckId      String   @map("truck_id")
+  truck        Truck    @relation(fields: [truckId], references: [id])
+  startTime    DateTime? @map("start_time")
+  endTime      DateTime? @map("end_time")
+  status       TripStatus @default(PLANNED)
+  podVerified  Boolean  @default(false) @map("pod_verified")
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+  advanceAmount Float  @default(0) @map("advance_amount")
+  balanceAmount Float  @default(0) @map("balance_amount")
+  escrowRef    String? @map("escrow_ref") // UPI/Razorpay/Pix/M-Pesa escrow ref
+  createdAt    DateTime @default(now()) @map("created_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt    DateTime?
+
+  gpsPings GpsPing[]
+
+  @@index([orgId, status])
+  @@map("trips")
+}
+
+model GpsPing {
+  id        String   @id @default(cuid())
+  tripId    String   @map("trip_id")
+  trip      Trip     @relation(fields: [tripId], references: [id])
+  lat       Float
+  lng       Float
+  speed     Float    @default(0) // km/h
+  heading   Float    @default(0) // degrees
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tripId, createdAt])
+  @@map("gps_pings")
+}
+
+// ============================================================
+// Negotiation & Pricing
+// ============================================================
+
+model Negotiation {
+  id           String   @id @default(cuid())
+  loadId       String   @map("load_id")
+  load         Load     @relation(fields: [loadId], references: [id])
+  driverPhone  String   @map("driver_phone")
+  driverLocale String   @default("hi") @map("driver_locale")
+  brokerOffer  Float    @map("broker_offer")
+  counterOffer Float    @map("counter_offer")
+  finalRate    Float    @default(0) @map("final_rate")
+  decision     NegotiationDecision // ACCEPTED | COUNTER | REJECTED
+  rounds       Int      @default(1)
+  messageHindi String?  @map("message_hindi") // original generated message
+  messageTranslated String? @map("message_translated") // localized per driver_locale
+  reasoning    String   @default("")
+  aiConfidence Float    @default(0.9) @map("ai_confidence")
+  createdAt    DateTime @default(now()) @map("created_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt    DateTime?
+
+  @@index([loadId])
+  @@map("negotiations")
+}
+
+model ShipperRFP {
+  id                       String   @id @default(cuid())
+  rfpCode                  String   @unique @map("rfp_code")
+  orgId                    String   @map("org_id")
+  org                      Organization @relation(fields: [orgId], references: [id])
+  company                  String
+  region                   Region   @default(IN)
+  lanes                    Int      @default(1)
+  monthlyVolumeTons        Int      @map("monthly_volume_tons")
+  truckTypes               String   @map("truck_types") // JSON-encoded array
+  expectedRatePerKm        Float    @map("expected_rate_per_km")
+  currency                 String   @default("INR")
+  contractDurationMonths   Int      @default(12) @map("contract_duration_months")
+  status                   RfpStatus @default(SUBMITTED)
+  submittedAt              DateTime @default(now()) @map("submitted_at")
+  createdAt                DateTime @default(now()) @map("created_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt                DateTime?
+
+  @@map("shipper_rfps")
+}
+
+// ============================================================
+// Fraud & Compliance
+// ============================================================
+
+model FraudAlert {
+  id         String   @id @default(cuid())
+  brokerId   String   @map("broker_id")
+  broker     Broker   @relation(fields: [brokerId], references: [id])
+  riskScore  Int      @map("risk_score")
+  flags      String   // JSON-encoded string array
+  recommendation FraudRecommendation @default(MONITOR)
+  status     FraudStatus @default(OPEN)
+  detectedAt DateTime @default(now()) @map("detected_at")
+
+  @@map("fraud_alerts")
+}
+
+model ComplianceDoc {
+  id        String   @id @default(cuid())
+  tripId    String?  @map("trip_id")
+  docType   String   @map("doc_type") // e_way_bill | pod | invoice | cn | fastag_receipt
+  docNumber String?  @map("doc_number") // gov-issued ID
+  payload   String   // JSON
+  region    Region   @default(IN)
+  status    ComplianceDocStatus @default(PENDING) // PENDING | VERIFIED | REJECTED
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("compliance_docs")
+}
+
+// ============================================================
+// AI Agents & Telemetry
+// ============================================================
+
+model AgentLog {
+  id              String   @id @default(cuid())
+  agentName       AgentName @map("agent_name")
+  eventType       String   @map("event_type")
+  payload         String   // JSON
+  latencyMs       Int      @map("latency_ms")
+  success         Boolean  @default(true)
+  userLocale      String?  @map("user_locale") // BCP-47
+  region          Region?  // IN | NG | ...
+  createdAt       DateTime @default(now()) @map("created_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt       DateTime?
+
+  @@index([agentName, createdAt])
+  @@index([region, createdAt])
+  @@map("agent_logs")
+}
+
+model FleetMetric {
+  id                String   @id @default(cuid())
+  orgId             String   @map("org_id")
+  date              String   @map("date") // YYYY-MM-DD
+  region            Region   @default(IN)
+  utilization       Int
+  revenue           Int
+  trips             Int
+  emptyReturnPct    Int      @map("empty_return_pct")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@unique([orgId, date, region])
+  @@map("fleet_metrics")
+}
+
+model TranslationCache {
+  id        String   @id @default(cuid())
+  sourceText String  @map("source_text")
+  sourceLang String  @map("source_lang") // BCP-47
+  targetLang String  @map("target_lang")
+  translatedText String @map("translated_text")
+  transliteratedText String? @map("transliterated_text") // Latin version
+  model     String   @default("nllb-200")
+  confidence Float  @default(1.0)
+  createdAt DateTime @default(now()) @map("created_at")
+  lastAccessedAt DateTime @default(now()) @map("last_accessed_at")
+  accessCount Int   @default(0) @map("access_count")
+
+  @@unique([sourceText, sourceLang, targetLang, model])
+  @@index([targetLang])
+  @@index([lastAccessedAt])
+  @@map("translation_cache")
+}
+
+// ============================================================
+// Multilingual Content — every text-bearing entity has multilingual support
+// ============================================================
+
+model MultilingualContent {
+  id        String   @id @default(cuid())
+  // Polymorphic: links to any entity (Load.goods_type, Trip.notes, etc.)
+  entityType EntityType @map("entity_type")   // load | trip | negotiation | broker | driver
+  entityId   String @map("entity_id")
+  field      String                          // e.g., "goods_type", "notes", "address"
+  // Original content
+  originalText   String @map("original_text")
+  originalLang   String @map("original_lang") // BCP-47
+  originalScript String @map("original_script") // Devanagari | Latin | Arabic | etc.
+  // Translated content (JSON: { "hi": "...", "en": "...", "bho": "..." })
+  translations Json    @default("{}")     // { locale: translated_text }
+  // Transliterated content (JSON: { "hi-Latn": "...", "en-Deva": "..." })
+  transliterations Json @default("{}")    // { locale_script: transliterated_text }
+  // Voice metadata (if generated from voice input)
+  voiceMetadata Json?                      // { audio_url, stt_provider, stt_confidence, detected_lang, duration_ms }
+  // Audit
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, entityId, field])
+  @@index([entityType, entityId])
+  @@index([originalLang])
+  @@map("multilingual_content")
+}
+
+// ============================================================
+// Conversation — cross-language conversation sync
+// ============================================================
+
+model Conversation {
+  id        String   @id @default(cuid())
+  // Optional references to business entities
+  loadId    String?  @map("load_id")
+  tripId    String?  @map("trip_id")
+  // Participants: JSON array of {user_id, role, preferred_locale}
+  participants Json                              // [{user_id, role, preferred_locale, voice_enabled}]
+  status    ConversationStatus @default(ACTIVE)          // ACTIVE | CLOSED | ARCHIVED
+  // Aggregated language stats
+  primaryLanguage String @default("hi") @map("primary_language") // most common participant locale
+  languagesUsed Json @default("[]")              // ["hi", "bho", "en"]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  messages ConversationMessage[]
+
+  @@index([loadId])
+  @@index([tripId])
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id              String   @id @default(cuid())
+  conversationId  String   @map("conversation_id")
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Sender
+  senderId        String   @map("sender_id")
+  senderRole      String   @map("sender_role")          // driver | broker | shipper | operator
+  senderName      String   @map("sender_name")
+  senderLocale    String   @map("sender_locale")        // BCP-47
+  // Original content (as spoken/typed by sender)
+  originalText    String   @map("original_text")
+  originalLocale  String   @map("original_locale")      // detected or self-declared
+  originalAudioUrl String? @map("original_audio_url")   // S3 URL of sender's voice
+  // Per-recipient localized versions (JSON)
+  translations    Json     @default("{}")               // { locale: text }
+  transliterations Json    @default("{}")               // { locale: latin_text }
+  audioPerLocale  Json     @default("{}") @map("audio_per_locale") // { locale: audio_url }
+  // NLU
+  intent          VoiceIntent?
+  confidence      Float    @default(1.0)
+  // Audit
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([conversationId, createdAt])
+  @@map("conversation_messages")
+}
+
+// ============================================================
+// Voice Interaction Log — track every voice interaction for analytics + cost
+// ============================================================
+
+model VoiceInteraction {
+  id           String   @id @default(cuid())
+  userId       String?  @map("user_id")
+  userRole     UserRole? @map("user_role")
+  userLocale   String?  @map("user_locale")
+  region       Region   @default(IN)
+  // Workflow: post_load | search_loads | negotiate | ask_question | manage_fleet | update_status
+  workflow     String
+  // STT
+  audioDurationMs Int?  @map("audio_duration_ms")
+  detectedLocale  String? @map("detected_locale")
+  transcriptText  String? @map("transcript_text")
+  sttProvider  String?
+  sttLatencyMs Int?     @map("stt_latency_ms")
+  // MT (if cross-language)
+  translatedText String? @map("translated_text")
+  translationProvider String? @map("translation_provider")
+  mtLatencyMs  Int?     @map("mt_latency_ms")
+  // NLU + Agent
+  intent       VoiceIntent?
+  agentInvoked String?  @map("agent_invoked")
+  agentLatencyMs Int?  @map("agent_latency_ms")
+  // TTS (if voice reply)
+  replyText    String? @map("reply_text")
+  replyLocale  String? @map("reply_locale")
+  ttsProvider  String?
+  ttsLatencyMs Int?     @map("tts_latency_ms")
+  // Total
+  totalLatencyMs Int   @map("total_latency_ms")
+  success      Boolean @default(true)
+  errorMessage String? @map("error_message")
+  // Cost (USD)
+  sttCost      Float   @default(0) @map("stt_cost")
+  mtCost       Float   @default(0) @map("mt_cost")
+  llmCost      Float   @default(0) @map("llm_cost")
+  ttsCost      Float   @default(0) @map("tts_cost")
+  totalCost    Float   @default(0) @map("total_cost")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([workflow, createdAt])
+  @@index([userLocale, createdAt])
+  @@index([region, createdAt])
+  @@map("voice_interactions")
+}
+
+// ============================================================
+// v3.2 WEDGE — Y1-specific entities
+// ============================================================
+
+model TruckPhoto {
+  id           String   @id @default(cuid())
+  truckId      String   @map("truck_id")
+  // Photo type: front | back | left_side | right_side | cargo_area | license_plate | rc_book
+  photoType    String   @map("photo_type")
+  s3Url        String   @map("s3_url")
+  // AI validation
+  aiValidated       Boolean @default(false) @map("ai_validated")
+  truckNumberMatch  Boolean @default(false) @map("truck_number_match")  // OCR'd plate matches truck.vehicleNumber
+  isStockImage      Boolean @default(false) @map("is_stock_image")      // reverse image search
+  validationNotes   String? @map("validation_notes")
+  // Metadata
+  capturedAt   DateTime @default(now()) @map("captured_at")
+  capturedBy   String   @map("captured_by")  // driver phone
+  capturedLocale String @default("hi") @map("captured_locale")
+  gpsLat       Float?
+  gpsLng       Float?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([truckId, photoType])
+  @@map("truck_photos")
+}
+
+model ConsigneeConfirmation {
+  id              String   @id @default(cuid())
+  tripId          String   @map("trip_id")
+  loadId          String   @map("load_id")
+  // Consignee contact
+  consigneeName    String  @map("consignee_name")
+  consigneePhone   String  @map("consignee_phone")
+  consigneeLocale  String  @default("hi") @map("consignee_locale")
+  // WhatsApp confirmation flow
+  whatsappMessageId  String?  @map("whatsapp_message_id")
+  confirmationLink   String   @map("confirmation_link")  // unique per confirmation
+  confirmationStatus ConsigneeConfirmationStatus @default(PENDING) @map("confirmation_status")  // PENDING | CONFIRMED | REJECTED | EXPIRED
+  confirmedAt        DateTime? @map("confirmed_at")
+  // Driver proof
+  driverPhotoUrl     String?  @map("driver_photo_url")  // photo at delivery
+  driverGpsLat       Float?   @map("driver_gps_lat")
+  driverGpsLng       Float?   @map("driver_gps_lng")
+  deliveryTimestamp  DateTime? @map("delivery_timestamp")
+  // Payment release trigger
+  paymentReleased    Boolean @default(false) @map("payment_released")
+  paymentReleasedAt  DateTime? @map("payment_released_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  expiresAt          DateTime @map("expires_at")  // 24h after delivery
+
+  @@index([tripId])
+  @@index([confirmationLink])
+  @@index([confirmationStatus])
+  @@map("consignee_confirmations")
+}
+
+model ReturnLoadMatch {
+  id              String   @id @default(cuid())
+  // Original (head-haul) load
+  originalLoadId  String   @map("original_load_id")
+  originalLoadTyreCode String @map("original_load_tyre_code")
+  // Matched return load
+  returnLoadId    String?  @map("return_load_id")
+  returnLoadTyreCode String? @map("return_load_tyre_code")
+  // Driver
+  driverId        String   @map("driver_id")
+  driverPhone     String   @map("driver_phone")
+  driverLocale    String   @default("hi") @map("driver_locale")
+  // Matching
+  matchScore      Float    @default(0) @map("match_score")  // 0.0-1.0
+  matchReasoning  String   @map("match_reasoning")
+  // Status
+  status          ReturnLoadMatchStatus @default(PROPOSED)  // PROPOSED | ACCEPTED | REJECTED | EXPIRED
+  proposedAt      DateTime @default(now()) @map("proposed_at")
+  acceptedAt      DateTime?
+  // Revenue (when both legs complete)
+  totalRevenue    Float    @default(0) @map("total_revenue")  // head-haul + return-haul
+  tyreTakeRate    Float    @default(0) @map("tyre_take_rate")  // 1% of total
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([driverId, status])
+  @@index([originalLoadId])
+  @@index([returnLoadId])
+  @@map("return_load_matches")
+}
+
+model FastagWallet {
+  id              String   @id @default(cuid())
+  driverId        String   @map("driver_id")
+  driverPhone     String   @map("driver_phone")
+  // FASTag details
+  fastagId        String   @unique @map("fastag_id")
+  fastagIssuer    String   @map("fastag_issuer")  // ICICI | HDFC | SBI | AXIS | etc.
+  vehicleNumber   String   @map("vehicle_number")
+  // Wallet
+  balance         Float    @default(0)  // in INR
+  autoRechargeThreshold Float @default(500) @map("auto_recharge_threshold")
+  autoRechargeAmount     Float @default(2000) @map("auto_recharge_amount")
+  // Linked to TYRE escrow
+  escrowLinked    Boolean  @default(false) @map("escrow_linked")
+  escrowAccountId String?  @map("escrow_account_id")
+  // Stats
+  totalTollPaid   Float    @default(0) @map("total_toll_paid")
+  totalRecharged  Float    @default(0) @map("total_recharged")
+  lastTollAt      DateTime? @map("last_toll_at")
+  lastRechargeAt  DateTime? @map("last_recharge_at")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([driverPhone])
+  @@index([vehicleNumber])
+  @@map("fastag_wallets")
+}
+
+model FastagTransaction {
+  id              String   @id @default(cuid())
+  fastagWalletId  String   @map("fastag_wallet_id")
+  // Transaction
+  transactionType FastagTransactionType @map("transaction_type")  // TOLL | RECHARGE | REFUND
+  amount          Float    // in INR
+  // Toll-specific
+  tollPlaza       String?  @map("toll_plaza")
+  tollPlazaId     String?  @map("toll_plaza_id")
+  highway         String?
+  // Recharge-specific
+  rechargeSource  String?  @map("recharge_source")  // UPI | ESCROW | CARD
+  // Metadata
+  transactionRef  String   @unique @map("transaction_ref")
+  status          TransactionStatus @default(SUCCESS)  // PENDING | SUCCESS | FAILED
+  occurredAt      DateTime @default(now()) @map("occurred_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([fastagWalletId, occurredAt])
+  @@index([transactionType])
+  @@map("fastag_transactions")
+}
+
+model VoiceOnboarding {
+  id              String   @id @default(cuid())
+  // Driver info (extracted from voice)
+  driverName      String   @map("driver_name")
+  driverPhone     String   @unique @map("driver_phone")
+  driverLocale    String   @default("hi") @map("driver_locale")
+  // Truck info (extracted from voice + OCR)
+  truckNumber     String?  @map("truck_number")
+  truckType       String?  @map("truck_type")
+  truckCapacity   Float?   @map("truck_capacity")  // in tons
+  // KYC
+  aadhaarVerified Boolean  @default(false) @map("aadhaar_verified")
+  panVerified     Boolean  @default(false) @map("pan_verified")
+  licenseVerified Boolean  @default(false) @map("license_verified")
+  rcVerified      Boolean  @default(false) @map("rc_verified")
+  // Voice metadata
+  voiceSampleUrl  String?  @map("voice_sample_url")
+  sttProvider      String?  @map("stt_provider")
+  detectedLocale   String?  @map("detected_locale")
+  onboardingDurationSec Int? @map("onboarding_duration_sec")
+  // Status
+  status          VoiceOnboardingStatus @default(INCOMPLETE)  // INCOMPLETE | AWAITING_KYC | VERIFIED | REJECTED
+  verifiedAt      DateTime? @map("verified_at")
+  rejectedReason  String?  @map("rejected_reason")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([driverPhone])
+  @@index([status])
+  @@map("voice_onboardings")
+}
+
+model UpiEscrowAccount {
+  id              String   @id @default(cuid())
+  // Linked parties
+  brokerId        String   @map("broker_id")
+  driverId        String?  @map("driver_id")
+  driverPhone     String?  @map("driver_phone")
+  loadId          String?  @map("load_id")
+  tripId          String?  @map("trip_id")
+  // Razorpay Route account
+  razorpayAccountId String @unique @map("razorpay_account_id")
+  // Balances
+  totalFunded     Float    @default(0) @map("total_funded")  // broker funds this
+  advanceReleased Float    @default(0) @map("advance_released")  // released to driver UPI on acceptance
+  balanceReleased Float    @default(0) @map("balance_released")  // released on GPS-verified POD
+  tyreFee         Float    @default(0) @map("tyre_fee")  // 1% take rate
+  refundToBroker  Float    @default(0) @map("refund_to_broker")  // if load cancelled
+  // Status
+  status          EscrowStatus @default(PENDING_FUNDING)  // PENDING_FUNDING | FUNDED | ADVANCE_RELEASED | COMPLETED | REFUNDED | DISPUTED
+  fundedAt        DateTime? @map("funded_at")
+  advanceReleasedAt DateTime? @map("advance_released_at")
+  completedAt     DateTime? @map("completed_at")
+  // Latency tracking (PMF target: 60 seconds for advance)
+  advanceReleaseLatencyMs Int? @map("advance_release_latency_ms")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt       DateTime?
+
+  @@index([brokerId, status])
+  @@index([driverPhone])
+  @@index([loadId])
+  @@index([status])
+  @@map("upi_escrow_accounts")
+}
+
+model UpiEscrowTransaction {
+  id              String   @id @default(cuid())
+  escrowAccountId String   @map("escrow_account_id")
+  // Transaction
+  transactionType TransactionType @map("transaction_type")  // FUNDING | ADVANCE_RELEASE | BALANCE_RELEASE | REFUND | TYRE_FEE
+  amount          Float    // in INR
+  // UPI details
+  upiId           String?  @map("upi_id")
+  upiTransactionRef String? @unique @map("upi_transaction_ref")
+  razorpayTransferId String? @map("razorpay_transfer_id")
+  /// Audit H3: the Razorpay `reference_id` (= our idempotency key) in a dedicated,
+  /// indexed column. The webhook previously matched `upiTransactionRef CONTAINS
+  /// reference_id` — an unindexed substring scan that silently missed rows whose
+  /// ref was a synchronously-returned UTR. Webhooks + dedup now match this exactly.
+  referenceId     String?  @map("reference_id")
+  // Status
+  status          TransactionStatus @default(PENDING)  // PENDING | SUCCESS | FAILED
+  failureReason   String?  @map("failure_reason")
+  // Trigger (what caused this transaction)
+  triggerType     TriggerType @map("trigger_type")  // LOAD_ACCEPT | GPS_POD | CONSIGNEE_CONFIRM | CANCELLATION | ESCROW_FEE
+  triggerRef      String?  @map("trigger_ref")  // trip_id, consignee_confirmation_id, etc.
+  occurredAt      DateTime @default(now()) @map("occurred_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt       DateTime?
+
+  @@index([escrowAccountId, occurredAt])
+  @@index([transactionType])
+  @@index([status])
+  @@index([referenceId])
+  @@map("upi_escrow_transactions")
+}
+
+/// Audit H3: provider webhook deliveries, keyed by the provider's event id, so a
+/// redelivered webhook (Razorpay retries on non-2xx and can double-deliver) is a
+/// no-op instead of re-running side effects and duplicating audit rows.
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  provider   String   // "razorpay" | "whatsapp" | "telegram"
+  eventId    String   @map("event_id")   // provider's delivery id (x-razorpay-event-id)
+  eventType  String?  @map("event_type") // e.g. payout.processed
+  receivedAt DateTime @default(now()) @map("received_at")
+
+  @@unique([provider, eventId])
+  @@map("webhook_events")
+}
+
+model LastMileRoute {
+  id              String   @id @default(cuid())
+  tripId          String   @map("trip_id")
+  driverId        String   @map("driver_id")
+  driverLocale    String   @default("hi") @map("driver_locale")
+  // Destination
+  consigneeAddress String  @map("consignee_address")
+  consigneeLat    Float    @map("consignee_lat")
+  consigneeLng    Float    @map("consignee_lng")
+  // Routing
+  routePolyline   String   @map("route_polyline")
+  totalDistanceKm Float    @map("total_distance_km")
+  estimatedMinutes Int     @map("estimated_minutes")
+  // Truck restrictions (avoided roads)
+  avoidedRoads    String   @default("[]") @map("avoided_roads")  // JSON array
+  truckRestrictedZones String @default("[]") @map("truck_restricted_zones")
+  // Predicted dock wait time
+  predictedDockWaitMin Int @default(0) @map("predicted_dock_wait_min")
+  // Turn-by-turn voice navigation (generated in driver's locale)
+  voiceNavUrl     String?  @map("voice_nav_url")
+  voiceNavLocale  String   @default("hi") @map("voice_nav_locale")
+  // Status
+  status          LastMileRouteStatus @default(ACTIVE)  // ACTIVE | COMPLETED | CANCELLED
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tripId])
+  @@index([driverId, status])
+  @@map("last_mile_routes")
+}
+
+// ============================================================
+// V2 — TYRE Trust Score (the moat)
+// ============================================================
+
+model TrustScore {
+  id              String   @id @default(cuid())
+  entityId        String   @map("entity_id")
+  entityType      EntityType @map("entity_type")  // driver | broker | shipper | fleet
+  // Score breakdown
+  totalScore      Int      @map("total_score")    // 0-1000
+  verificationScore Int    @map("verification_score")  // 0-300
+  transactionScore Int     @map("transaction_score")  // 0-400
+  behavioralScore Int      @map("behavioral_score")    // 0-200
+  peerRatingScore Int      @map("peer_rating_score")   // 0-100
+  // Tier
+  tier            TrustTier @default(Unverified)  // Platinum | Gold | Silver | Bronze | Unverified
+  badge           String   @default("🔴 Unverified")
+  // Metadata
+  computedAt      DateTime @default(now()) @map("computed_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  /// Soft-delete marker (audit fix INFRA-C15)
+  deletedAt       DateTime?
+
+  @@unique([entityId, entityType])
+  @@index([entityType, tier])
+  @@index([totalScore])
+  @@map("trust_scores")
+}
+
+model Verification {
+  id              String   @id @default(cuid())
+  entityId        String   @map("entity_id")
+  entityType      EntityType @map("entity_type")
+  verificationType VerificationType @map("verification_type")  // aadhaar | gstin | pan | bank | vehicle | insurance | phone | address
+  // Result
+  success         Boolean  @default(false)
+  scorePoints     Int      @default(0) @map("score_points")
+  maxPoints       Int      @map("max_points")
+  // Metadata
+  referenceId     String?  @map("reference_id")  // external API reference
+  piiHash         String?  @map("pii_hash")      // hashed PII for lookup (never store raw PII)
+  verifiedAt      DateTime @default(now()) @map("verified_at")
+  expiresAt       DateTime? @map("expires_at")   // some verifications expire
+  failureReason   String?  @map("failure_reason")
+  // Raw data (PII-redacted JSON)
+  rawData         Json?    @map("raw_data")
+
+  @@index([entityId, entityType])
+  @@index([verificationType, success])
+  @@index([expiresAt])
+  @@map("verifications")
+}
+
+model TrustActionLog {
+  id              String   @id @default(cuid())
+  entityId        String   @map("entity_id")
+  entityType      EntityType @map("entity_type")
+  // Action
+  action          String   // load_completed_on_time | one_star_rating | payment_default | etc.
+  scoreChange     Int      @map("score_change")     // can be positive (reward) or negative (penalty)
+  oldScore        Int      @map("old_score")
+  newScore        Int      @map("new_score")
+  oldTier         TrustTier @map("old_tier")
+  newTier         TrustTier @map("new_tier")
+  // Auto-actions triggered
+  autoBan         Boolean  @default(false) @map("auto_ban")
+  autoSuspend     Boolean  @default(false) @map("auto_suspend")
+  autoReview      Boolean  @default(false) @map("auto_review")
+  consecutiveCount Int     @default(0) @map("consecutive_count")
+  // Context
+  triggeredBy     String?  @map("triggered_by")    // who triggered this action
+  triggerRef      String?  @map("trigger_ref")      // load_id, trip_id, etc.
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([entityId, createdAt])
+  @@index([action, createdAt])
+  @@index([autoBan])
+  @@map("trust_action_logs")
+}
+
+model FraudIncident {
+  id              String   @id @default(cuid())
+  // Fraud detection
+  fraudVector     String   @map("fraud_vector")  // fake_loads | fake_truck | fake_pod | etc.
+  entityId        String   @map("entity_id")
+  entityType      EntityType @map("entity_type")
+  // Incident details
+  severity        RiskLevel @default(HIGH)  // LOW | MEDIUM | HIGH | CRITICAL
+  description     String
+  detectedBy      String   @default("AI")  // AI | MANUAL | SYSTEM
+  // Defense applied
+  defenseApplied  String   @map("defense_applied")
+  trustScorePenalty Int    @default(0) @map("trust_score_penalty")
+  autoBanTriggered Boolean @default(false) @map("auto_ban_triggered")
+  // Resolution
+  status          FraudStatus @default(OPEN)  // OPEN | INVESTIGATING | RESOLVED | FALSE_POSITIVE
+  resolvedAt      DateTime? @map("resolved_at")
+  resolvedBy      String?  @map("resolved_by")
+  resolutionNotes String?  @map("resolution_notes")
+  // Evidence
+  evidence        Json?    // photos, GPS data, timestamps, etc.
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([fraudVector, createdAt])
+  @@index([entityId, status])
+  @@index([status])
+  @@map("fraud_incidents")
+}
+
+model WhatsAppInteraction {
+  id              String   @id @default(cuid())
+  driverPhone     String   @map("driver_phone")
+  // Message
+  direction       String   // INBOUND | OUTBOUND
+  messageType     String   @map("message_type")  // text | voice | image | interactive
+  textBody        String?  @map("text_body")
+  voiceUrl        String?  @map("voice_url")
+  imageUrl        String?  @map("image_url")
+  // Intent detection
+  detectedIntent  String?  @map("detected_intent")  // LOAD_SEARCH | LOAD_ACCEPT | STATUS_UPDATE | etc.
+  // Processing
+  processedBy     String?  @map("processed_by")  // AI | HUMAN | RULE
+  responseText    String?  @map("response_text")
+  processingTimeMs Int?   @map("processing_time_ms")
+  // WhatsApp metadata
+  whatsappMessageId String? @map("whatsapp_message_id")
+  // Timestamps
+  receivedAt      DateTime @default(now()) @map("received_at")
+  respondedAt     DateTime? @map("responded_at")
+
+  @@index([driverPhone, receivedAt])
+  @@index([detectedIntent])
+  @@index([direction])
+  @@map("whatsapp_interactions")
+}
+
+// ── ApiKey — Phase 0 fix (ARCHITECTURE.md §4.2) ──────────────────────────────
+// "ApiKey was added in the 3-repo merge but has no issuance or verification
+// code — it's a model waiting for an implementation."
+// Implementation lives in packages/auth/src/api-key.ts.
+// keyHash: SHA-256 of the raw `tyre_live_<32 hex>` key — never stored raw.
+// scopes: JSON-encoded string array matching RBAC action strings.
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique @map("key_hash")   // SHA-256 of raw key
+  prefix      String                                // first 12 chars for display
+  scopes      String    @default("[]")              // JSON-encoded string[]
+  revoked     Boolean   @default(false)
+  lastUsedAt  DateTime? @map("last_used_at")
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([keyHash])
+  @@index([revoked, expiresAt])
+  @@map("api_keys")
+}
+
+// ============================================================
+// Dashboard Support Models (v2 dashboard update)
+// ------------------------------------------------------------
+// These models power the multi-panel dashboard's Notifications,
+// Top Routes, Revenue Trend, and Weather widgets.
+// ============================================================
+
+model Notification {
+  id        String    @id @default(cuid())
+  orgId     String?   @map("org_id")   // org-broadcast when userId is null
+  userId    String?   @map("user_id")  // personal notification target
+  category  String    @default("system") // load | payment | trip | document | weather | system
+  type      String    // load_available | payment_received | trip_completed | weather_alert | ...
+  title     String
+  body      String
+  amount    Float?
+  data      Json?     // deep-link + structured payload
+  channel   String    @default("in_app") // in_app | push | sms | whatsapp | email
+  read      Boolean   @default(false)
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, read])
+  @@index([orgId, createdAt])
+  @@map("dashboard_notifications")
+}
+
+/// Per-user channel preferences by category. A missing row means "default on".
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  category  String   // load | payment | trip | document | weather | system
+  channel   String   // in_app | push | sms | whatsapp | email
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, category, channel])
+  @@map("notification_preferences")
+}
+
+model RoutePerf {
+  id            String   @id @default(cuid())
+  origin        String
+  destination   String
+  revenue       Float
+  tripsCount    Int      @map("trips_count")
+  week          String
+
+  @@map("dashboard_route_perfs")
+}
+
+model RevenuePoint {
+  id        String   @id @default(cuid())
+  date      String   // e.g. "Mon", "Tue"
+  revenue   Float
+  trips     Int
+
+  @@map("dashboard_revenue_points")
+}
+
+model WeatherAlert {
+  id        String   @id @default(cuid())
+  city      String
+  tempC     Int      @map("temp_c")
+  condition String
+  alert     String?
+
+  @@map("dashboard_weather_alerts")
+}
+
+// ============================================================
+// BroadcastLog — Week 3 of the WhatsApp↔Telegram bridge
+// ------------------------------------------------------------
+// When a broker broadcasts a load to nearby drivers, we log:
+//   - which load (tyre_code) was broadcast
+//   - which broker (broker_code) initiated it
+//   - origin GPS + radius used for the nearby query
+//   - how many drivers were found vs. notified (WhatsApp blasts can fail)
+//   - the per-driver outcome (delivered / failed / opted-out)
+//
+// This is the audit trail required by the marketplace anti-spam rules:
+// a broker can't broadcast the same load more than 3 times in 10 minutes,
+// and a driver can't receive more than 5 broadcasts per hour. Both checks
+// query this table.
+// ============================================================
+model BroadcastLog {
+  id              String   @id @default(cuid())
+  tyreCode        String   @map("tyre_code")
+  brokerCode      String   @map("broker_code")
+  // Origin snapshot — the load's origin coords at broadcast time. Stored
+  // denormalized so the log row is self-contained even if the load is later
+  // cancelled or edited.
+  originLat       Float    @map("origin_lat")
+  originLng       Float    @map("origin_lng")
+  originLabel     String   @map("origin_label")   // human-readable, e.g. "Patna"
+  radiusKm        Int      @map("radius_km")
+  truckTypeFilter String?  @map("truck_type_filter")
+  // Stats — updated atomically with the per-driver outcome list
+  driversFound    Int      @default(0) @map("drivers_found")
+  driversNotified Int      @default(0) @map("drivers_notified")
+  driversFailed   Int      @default(0) @map("drivers_failed")
+  // Per-driver outcome as a JSON array of {phone, name, distance_km, status}
+  outcomes        String   @default("[]")
+  initiatedBy     String   @default("broker_telegram") @map("initiated_by") // broker_telegram | dashboard | api
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tyreCode, createdAt])
+  @@index([brokerCode, createdAt])
+  @@index([createdAt])
+  @@map("broadcast_logs")
+}
+
+// ============================================================
+// Freight Marketplace — user-listed freight vehicles
+// ------------------------------------------------------------
+// A FreightListing is a vehicle + owner offered on the open
+// marketplace. Anyone can search listings and request a booking;
+// when the lister ACCEPTS a booking, a flat ₹49 platform fee is
+// debited from the lister's payout ledger. If that booking is
+// later CANCELLED, the ₹49 is refunded automatically. Every fee
+// movement is an immutable FreightPayoutEntry row so the payout
+// balance is always an auditable sum.
+// ============================================================
+
+enum FreightListingStatus {
+  ACTIVE
+  PAUSED
+  BOOKED
+}
+
+enum FreightBookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum FreightPayoutType {
+  BOOKING_FEE
+  BOOKING_FEE_REFUND
+}
+
+model FreightListing {
+  id            String   @id @default(cuid())
+  code          String   @unique @map("code") // FRT-0001
+  ownerId       String   @map("owner_id")     // device/session identity of the lister
+  ownerName     String   @map("owner_name")
+  phone         String
+  photoUrl      String?  @map("photo_url")
+  vehicleNumber String   @map("vehicle_number")
+  vehicleType   String   @map("vehicle_type") // Open | Container | Tipper | Tanker | Refrigerated | Trailer
+  capacityTons  Float    @map("capacity_tons")
+  origin        String                         // home base / current location
+  destination   String?                        // preferred route (optional)
+  ratePerKm     Float?   @map("rate_per_km")
+  expectedRate  Float?   @map("expected_rate") // flat expected rate for the route
+  description   String   @default("")
+  status        FreightListingStatus @default(ACTIVE)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")   // soft delete, consistent with Load/Truck
+
+  bookings      FreightBooking[]
+  payoutEntries FreightPayoutEntry[]
+
+  @@index([status, vehicleType])
+  @@index([ownerId])
+  @@map("freight_listings")
+}
+
+model FreightBooking {
+  id           String   @id @default(cuid())
+  listingId    String   @map("listing_id")
+  listing      FreightListing @relation(fields: [listingId], references: [id])
+  bookerId     String   @map("booker_id")
+  bookerName   String   @map("booker_name")
+  bookerPhone  String   @map("booker_phone")
+  pickup       String   @default("")
+  dropoff      String   @default("")
+  note         String   @default("")
+  status       FreightBookingStatus @default(PENDING)
+  // True once the ₹49 acceptance fee has been debited (and not yet refunded).
+  // Guards against double-charging and double-refunding.
+  feeCharged   Boolean  @default(false) @map("fee_charged")
+  acceptedAt   DateTime? @map("accepted_at")
+  cancelledAt  DateTime? @map("cancelled_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  payoutEntries FreightPayoutEntry[]
+
+  @@index([listingId, status])
+  @@index([bookerId])
+  @@map("freight_bookings")
+}
+
+model FreightPayoutEntry {
+  id        String   @id @default(cuid())
+  ownerId   String   @map("owner_id")        // whose payout balance this affects
+  listingId String?  @map("listing_id")
+  listing   FreightListing? @relation(fields: [listingId], references: [id])
+  bookingId String?  @map("booking_id")
+  booking   FreightBooking? @relation(fields: [bookingId], references: [id])
+  type      FreightPayoutType
+  // Signed INR amount: BOOKING_FEE = -49, BOOKING_FEE_REFUND = +49
+  amount    Float
+  note      String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ownerId, createdAt])
+  @@map("freight_payout_entries")
+}
+
+/// Compliance document for a vehicle or driver (insurance, RC, permit, fitness,
+/// pollution, licence, etc.). Status (VALID/EXPIRING/EXPIRED) is derived from
+/// expiryDate at read time rather than stored. Scalar truck_id/driver_id (no FK
+/// relation) so this model is fully additive and touches no existing model.
+model Document {
+  id         String    @id @default(cuid())
+  orgId      String    @map("org_id")
+  truckId    String?   @map("truck_id")
+  driverId   String?   @map("driver_id")
+  type       String    // INSURANCE | RC | PERMIT | FITNESS | POLLUTION | LICENSE | OTHER
+  docNumber  String?   @map("doc_number")
+  issuer     String?
+  fileUrl    String?   @map("file_url")
+  issueDate  DateTime? @map("issue_date")
+  expiryDate DateTime? @map("expiry_date")
+  notes      String    @default("")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@index([orgId, expiryDate])
+  @@index([truckId])
+  @@index([driverId])
+  @@map("documents")
+}
+
+/// Org tax identity (GSTIN/PAN/state) used by the settlement engine. Additive.
+model TaxProfile {
+  id            String   @id @default(cuid())
+  orgId         String   @unique @map("org_id")
+  legalName     String   @map("legal_name")
+  gstin         String?
+  pan           String?
+  stateCode     String?  @map("state_code") // e.g. "BR", "DL"
+  gstRegistered Boolean  @default(true) @map("gst_registered")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("tax_profiles")
+}
+
+/// Immutable tax invoice + settlement for a completed trip (one per trip).
+model Invoice {
+  id               String    @id @default(cuid())
+  invoiceNo        String    @unique @map("invoice_no")
+  orgId            String    @map("org_id")
+  tripId           String    @unique @map("trip_id")
+  loadCode         String?   @map("load_code")
+  placeOfSupply    String    @map("place_of_supply") // intra | inter
+  currency         String    @default("INR")
+  grossFreight     Float     @map("gross_freight")
+  gstTotal         Float     @map("gst_total")
+  commissionTotal  Float     @map("commission_total")
+  tdsTotal         Float     @map("tds_total")
+  invoiceTotal     Float     @map("invoice_total")
+  carrierNetPayout Float     @map("carrier_net_payout")
+  status           String    @default("ISSUED") // DRAFT | ISSUED | CANCELLED
+  financialYear    String    @map("financial_year")
+  pdfUrl           String?   @map("pdf_url")
+  issuedAt         DateTime? @map("issued_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  lines InvoiceLine[]
+
+  @@index([orgId, financialYear, status])
+  @@index([tripId])
+  @@map("invoices")
+}
+
+/// One line of an invoice (freight, CGST/SGST/IGST, commission, commission GST, TDS).
+model InvoiceLine {
+  id          String   @id @default(cuid())
+  invoiceId   String   @map("invoice_id")
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  kind        String
+  description String
+  amount      Float
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([invoiceId])
+  @@map("invoice_lines")
+}

@@ -280,18 +280,22 @@ export function RoadJourney({
           </motion.g>
 
           {/* destination bloom on launch */}
-          {pts[pts.length - 1] && (
-            <motion.circle
-              cx={pts[pts.length - 1].x}
-              cy={pts[pts.length - 1].y}
-              r="60"
-              fill="url(#rj-bloom)"
-              initial={{ opacity: 0, scale: 0.2 }}
-              animate={launched ? { opacity: [0, 0.9, 0], scale: [0.2, 2.4, 3.2] } : { opacity: 0, scale: 0.2 }}
-              transition={{ duration: 1.4, ease: [0.19, 1, 0.22, 1] }}
-              style={{ transformOrigin: "center" }}
-            />
-          )}
+          {(() => {
+            const lastPt = pts[pts.length - 1];
+            if (!lastPt) return null;
+            return (
+              <motion.circle
+                cx={lastPt.x}
+                cy={lastPt.y}
+                r="60"
+                fill="url(#rj-bloom)"
+                initial={{ opacity: 0, scale: 0.2 }}
+                animate={launched ? { opacity: [0, 0.9, 0], scale: [0.2, 2.4, 3.2] } : { opacity: 0, scale: 0.2 }}
+                transition={{ duration: 1.4, ease: [0.19, 1, 0.22, 1] }}
+                style={{ transformOrigin: "center" }}
+              />
+            );
+          })()}
         </motion.g>
       </svg>
     </motion.div>

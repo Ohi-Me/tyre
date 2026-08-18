@@ -75,13 +75,13 @@ export async function GET(req: NextRequest) {
     const rows = await db.document.findMany({ where, orderBy: { expiryDate: "asc" }, take: 500 });
     let data = rows.map(serialize);
     // Status is derived, so filter it in-memory after computing.
-    if (status) data = data.filter((d) => d.status === status.toUpperCase());
+    if (status) data = data.filter((d: any) => d.status === status.toUpperCase());
 
     const summary = {
-      valid: data.filter((d) => d.status === "VALID").length,
-      expiring: data.filter((d) => d.status === "EXPIRING").length,
-      expired: data.filter((d) => d.status === "EXPIRED").length,
-      unknown: data.filter((d) => d.status === "UNKNOWN").length,
+      valid: data.filter((d: any) => d.status === "VALID").length,
+      expiring: data.filter((d: any) => d.status === "EXPIRING").length,
+      expired: data.filter((d: any) => d.status === "EXPIRED").length,
+      unknown: data.filter((d: any) => d.status === "UNKNOWN").length,
     };
 
     return NextResponse.json({ success: true, data, summary });

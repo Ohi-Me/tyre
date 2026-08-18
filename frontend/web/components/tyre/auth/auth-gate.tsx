@@ -74,12 +74,12 @@ export function AuthGate() {
 
   /* business fields */
   const [company, setCompany] = useState("");
-  const [businessType, setBusinessType] = useState(BUSINESS_TYPES[0]);
-  const [fleetType, setFleetType] = useState(FLEET_TYPES[0]);
-  const [industry, setIndustry] = useState(INDUSTRIES[0]);
+  const [businessType, setBusinessType] = useState<string>(BUSINESS_TYPES[0] || "");
+  const [fleetType, setFleetType] = useState<string>(FLEET_TYPES[0] || "");
+  const [industry, setIndustry] = useState<string>(INDUSTRIES[0] || "");
   const [country, setCountry] = useState("India");
   const [currency, setCurrency] = useState("INR (₹)");
-  const [teamSize, setTeamSize] = useState(TEAM_SIZES[0]);
+  const [teamSize, setTeamSize] = useState<string>(TEAM_SIZES[0] || "");
   const [categories, setCategories] = useState<string[]>(["Car"]);
 
   /* ── validity ── */

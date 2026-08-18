@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       invoiceNo = `INV-${fy}-${customAlphabet("0123456789", 6)()}`;
     }
 
-    const created = await db.$transaction(async (tx) => {
+    const created = await db.$transaction(async (tx: any) => {
       const inv = await tx.invoice.create({
         data: {
           invoiceNo,
@@ -166,3 +166,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Internal error" }, { status: 500 });
   }
 }
+

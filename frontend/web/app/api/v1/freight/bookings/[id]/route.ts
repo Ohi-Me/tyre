@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       if (!isLister) return fail("Only the lister can accept a booking", 403);
       if (booking.status !== "PENDING") return fail(`Cannot accept a ${booking.status.toLowerCase()} booking`);
 
-      updated = await db.$transaction(async (tx) => {
+      updated = await db.$transaction(async (tx: any) => {
         const b = await tx.freightBooking.update({
           where: { id: booking.id, status: "PENDING" }, // status guard vs. concurrent action
           data: { status: "ACCEPTED", feeCharged: true, acceptedAt: new Date() },
@@ -118,7 +118,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         return fail(`Cannot cancel a ${booking.status.toLowerCase()} booking`);
       }
 
-      updated = await db.$transaction(async (tx) => {
+      updated = await db.$transaction(async (tx: any) => {
         const b = await tx.freightBooking.update({
           where: { id: booking.id },
           data: { status: "CANCELLED", cancelledAt: new Date(), feeCharged: false },
@@ -156,7 +156,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       if (!isLister) return fail("Only the lister can mark a booking complete", 403);
       if (booking.status !== "ACCEPTED") return fail(`Cannot complete a ${booking.status.toLowerCase()} booking`);
 
-      updated = await db.$transaction(async (tx) => {
+      updated = await db.$transaction(async (tx: any) => {
         const b = await tx.freightBooking.update({
           where: { id: booking.id },
           data: { status: "COMPLETED" },
